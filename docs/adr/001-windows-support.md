@@ -29,6 +29,9 @@ The upstream project (superfly/corrosion) does not currently support Windows.
 | **nix Crate** | Unix system calls library | sqlite3-restore | Medium | ✅ Fixed |
 | **Systemd** | Linux-only service integration | corrosion | Low (already conditional) | ✅ N/A |
 | **ring 0.16.x** | C code doesn't compile for ARM64 | TLS/crypto | N/A | ❌ Blocks ARM64 |
+| **jemalloc** | Doesn't compile on Windows | corrosion | Low | ✅ Fixed (made Unix-only) |
+| **cr-sqlite** | No Windows DLL included | corro-types | Medium | ✅ Fixed (added DLL) |
+| **libgit2-sys** | Missing Windows library links (advapi32) | build-info | High | ❌ Blocks AMD64 |
 
 ### Detailed Breakdown
 

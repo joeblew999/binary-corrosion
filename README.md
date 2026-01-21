@@ -14,7 +14,6 @@ Pre-built binaries available at [GitHub Releases](https://github.com/joeblew999/
 | Linux ARM64 | [corrosion-linux-arm64.tar.gz](https://github.com/joeblew999/binary-corrosion/releases/latest/download/corrosion-linux-arm64.tar.gz) |
 | macOS ARM64 | [corrosion-darwin-arm64.tar.gz](https://github.com/joeblew999/binary-corrosion/releases/latest/download/corrosion-darwin-arm64.tar.gz) |
 | macOS AMD64 | [corrosion-darwin-amd64.tar.gz](https://github.com/joeblew999/binary-corrosion/releases/latest/download/corrosion-darwin-amd64.tar.gz) |
-| Windows AMD64 | [corrosion-windows-amd64.tar.gz](https://github.com/joeblew999/binary-corrosion/releases/latest/download/corrosion-windows-amd64.tar.gz) |
 
 ## Development
 
@@ -47,7 +46,7 @@ task rust:build:linux:cross
 
 Outputs to `.bin/linux-amd64/` and `.bin/linux-arm64/`.
 
-Windows AMD64 support enabled via fork with cross-platform signal handling. Windows ARM64 blocked by `ring` crate dependency (C code incompatibility).
+Windows support is blocked by libgit2-sys linking issues. See [ADR-001](docs/adr/001-windows-support.md) for details.
 
 ## Links
 
