@@ -2,9 +2,9 @@
 version: '3'
 
 vars:
-  REPO_URL: https://github.com/superfly/corrosion.git
+  SRC_REPO: https://github.com/superfly/corrosion.git
   SRC_DIR: .src
-  BIN_DIR: bin
+  BIN_DIR: .bin
   BINARY_NAME: corrosion
 
 tasks:
@@ -13,252 +13,465 @@ tasks:
     cmds:
       - task --list
 
-  # === Setup Tasks ===
+  # =============================================================================
+  # Main Entry Points
+  # =============================================================================
 
-  setup:
-    desc: Install required Rust toolchain and targets
+  build:
+    desc: Clone and build for current platform
     cmds:
-      - rustup show
-      - task: setup:targets
+      - task: src:clone
+      - task: rust:build
 
-  setup:targets:
-    desc: Install cross-compilation targets
-    ignore_error: true
+  build:all:
+    desc: Clone, setup, and build for all platforms
     cmds:
-      - rustup target add x86_64-apple-darwin
-      - rustup target add aarch64-apple-darwin
-      - rustup target add x86_64-unknown-linux-gnu
-      - rustup target add aarch64-unknown-linux-gnu
-      - rustup target add x86_64-unknown-linux-musl
-      - rustup target add aarch64-unknown-linux-musl
-      - rustup target add x86_64-pc-windows-msvc
-      - rustup target add x86_64-pc-windows-gnu
-      - echo "Installed targets:"
-      - rustup target list --installed
+      - task: src:clone
+      - task: rust:setup:targets
+      - task: rust:build:all
 
-  # === Clone Tasks ===
+  clean:
+    desc: Clean build artifacts (keeps source)
+    cmds:
+      - task: rust:clean
 
-  clone:
+  clean:all:
+    desc: Clean everything including source
+    cmds:
+      - task: rust:clean
+      - task: src:clean
+
+  # =============================================================================
+  # Source Management (src:*)
+  # =============================================================================
+
+  src:clone:
     desc: Clone corrosion source to .src directory
     cmds:
       - rm -rf {{.SRC_DIR}}
-      - git clone {{.REPO_URL}} {{.SRC_DIR}}
+      - git clone {{.SRC_REPO}} {{.SRC_DIR}}
     status:
       - test -d {{.SRC_DIR}}/.git
 
-  clone:update:
+  src:update:
     desc: Update the cloned source
     dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
     cmds:
       - git fetch origin
       - git pull origin main
-    preconditions:
-      - test -d {{.SRC_DIR}}/.git
 
-  # === Build Tasks ===
+  src:clean:
+    desc: Remove cloned source directory
+    cmds:
+      - rm -rf {{.SRC_DIR}}
+    status:
+      - '! test -d {{.SRC_DIR}}'
 
-  build:
+  # =============================================================================
+  # Rust Setup (rust:setup:*)
+  # =============================================================================
+
+  rust:setup:
+    desc: Install required Rust toolchain and targets
+    cmds:
+      - rustup show
+      - task: rust:setup:targets
+
+  rust:setup:targets:
+    desc: Install cross-compilation targets
+    vars:
+      TARGETS: >-
+        x86_64-apple-darwin
+        aarch64-apple-darwin
+        x86_64-unknown-linux-gnu
+        aarch64-unknown-linux-gnu
+        x86_64-unknown-linux-musl
+        aarch64-unknown-linux-musl
+        x86_64-pc-windows-msvc
+        x86_64-pc-windows-gnu
+    cmds:
+      - for: { var: TARGETS }
+        cmd: rustup target add {{.ITEM}} || true
+      - rustup target list --installed
+
+  rust:setup:cross:
+    desc: Install the cross tool for cross-compilation
+    cmds:
+      - cargo install cross --git https://github.com/cross-rs/cross
+    status:
+      - which cross
+
+  # =============================================================================
+  # Rust Build (rust:build:*)
+  # =============================================================================
+
+  rust:build:
     desc: Build for current platform (release)
     dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
+    sources:
+      - '{{.SRC_DIR}}/Cargo.toml'
+      - '{{.SRC_DIR}}/Cargo.lock'
+      - '{{.SRC_DIR}}/crates/**/*.rs'
+    generates:
+      - '{{.BIN_DIR}}/{{.BINARY_NAME}}'
     cmds:
       - cargo build --release
       - mkdir -p ../{{.BIN_DIR}}
       - cp target/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/
 
-  build:dev:
+  rust:build:dev:
     desc: Build for current platform (debug)
     dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
+    sources:
+      - '{{.SRC_DIR}}/Cargo.toml'
+      - '{{.SRC_DIR}}/Cargo.lock'
+      - '{{.SRC_DIR}}/crates/**/*.rs'
+    generates:
+      - '{{.BIN_DIR}}/{{.BINARY_NAME}}-debug'
     cmds:
       - cargo build
       - mkdir -p ../{{.BIN_DIR}}
       - cp target/debug/{{.BINARY_NAME}} ../{{.BIN_DIR}}/{{.BINARY_NAME}}-debug
 
-  # === macOS Builds ===
+  rust:build:all:
+    desc: Build for all platforms
+    cmds:
+      - task: rust:build:macos
+      - task: rust:build:linux
+      - task: rust:build:windows
 
-  build:macos:
+  # --- macOS ---
+
+  rust:build:macos:
     desc: Build for both macOS architectures
     cmds:
-      - task: build:macos-arm64
-      - task: build:macos-amd64
+      - task: rust:build:macos:arm64
+      - task: rust:build:macos:amd64
 
-  build:macos-arm64:
+  rust:build:macos:arm64:
     desc: Build for macOS ARM64 (Apple Silicon)
     dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
+    sources:
+      - '{{.SRC_DIR}}/Cargo.toml'
+      - '{{.SRC_DIR}}/Cargo.lock'
+      - '{{.SRC_DIR}}/crates/**/*.rs'
+    generates:
+      - '{{.BIN_DIR}}/darwin-arm64/{{.BINARY_NAME}}'
     cmds:
       - cargo build --release --target aarch64-apple-darwin
       - mkdir -p ../{{.BIN_DIR}}/darwin-arm64
       - cp target/aarch64-apple-darwin/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/darwin-arm64/
 
-  build:macos-amd64:
+  rust:build:macos:amd64:
     desc: Build for macOS AMD64 (Intel)
     dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
+    sources:
+      - '{{.SRC_DIR}}/Cargo.toml'
+      - '{{.SRC_DIR}}/Cargo.lock'
+      - '{{.SRC_DIR}}/crates/**/*.rs'
+    generates:
+      - '{{.BIN_DIR}}/darwin-amd64/{{.BINARY_NAME}}'
     cmds:
       - cargo build --release --target x86_64-apple-darwin
       - mkdir -p ../{{.BIN_DIR}}/darwin-amd64
       - cp target/x86_64-apple-darwin/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/darwin-amd64/
 
-  build:macos-universal:
+  rust:build:macos:universal:
     desc: Build universal macOS binary (ARM64 + AMD64)
     deps:
-      - build:macos-arm64
-      - build:macos-amd64
+      - rust:build:macos:arm64
+      - rust:build:macos:amd64
+    sources:
+      - '{{.BIN_DIR}}/darwin-arm64/{{.BINARY_NAME}}'
+      - '{{.BIN_DIR}}/darwin-amd64/{{.BINARY_NAME}}'
+    generates:
+      - '{{.BIN_DIR}}/darwin-universal/{{.BINARY_NAME}}'
     cmds:
       - mkdir -p {{.BIN_DIR}}/darwin-universal
       - lipo -create -output {{.BIN_DIR}}/darwin-universal/{{.BINARY_NAME}} {{.BIN_DIR}}/darwin-arm64/{{.BINARY_NAME}} {{.BIN_DIR}}/darwin-amd64/{{.BINARY_NAME}}
 
-  # === Linux Builds (requires cross-compilation setup) ===
+  # --- Linux ---
 
-  build:linux:
-    desc: Build for Linux (requires cross or Docker)
+  rust:build:linux:
+    desc: Build for Linux (amd64 + arm64)
     cmds:
-      - task: build:linux-amd64
-      - task: build:linux-arm64
+      - task: rust:build:linux:amd64
+      - task: rust:build:linux:arm64
 
-  build:linux-amd64:
+  rust:build:linux:amd64:
     desc: Build for Linux AMD64
     dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
+    sources:
+      - '{{.SRC_DIR}}/Cargo.toml'
+      - '{{.SRC_DIR}}/Cargo.lock'
+      - '{{.SRC_DIR}}/crates/**/*.rs'
+    generates:
+      - '{{.BIN_DIR}}/linux-amd64/{{.BINARY_NAME}}'
     ignore_error: true
     cmds:
-      - echo "Building for Linux AMD64 (requires cross-compilation toolchain)..."
       - cargo build --release --target x86_64-unknown-linux-gnu
       - mkdir -p ../{{.BIN_DIR}}/linux-amd64
       - cp target/x86_64-unknown-linux-gnu/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-amd64/
 
-  build:linux-arm64:
+  rust:build:linux:arm64:
     desc: Build for Linux ARM64
     dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
+    sources:
+      - '{{.SRC_DIR}}/Cargo.toml'
+      - '{{.SRC_DIR}}/Cargo.lock'
+      - '{{.SRC_DIR}}/crates/**/*.rs'
+    generates:
+      - '{{.BIN_DIR}}/linux-arm64/{{.BINARY_NAME}}'
     ignore_error: true
     cmds:
-      - echo "Building for Linux ARM64 (requires cross-compilation toolchain)..."
       - cargo build --release --target aarch64-unknown-linux-gnu
       - mkdir -p ../{{.BIN_DIR}}/linux-arm64
       - cp target/aarch64-unknown-linux-gnu/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-arm64/
 
-  build:linux-musl:
+  rust:build:linux:musl:
     desc: Build for Linux with musl (static binary)
     dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
+    sources:
+      - '{{.SRC_DIR}}/Cargo.toml'
+      - '{{.SRC_DIR}}/Cargo.lock'
+      - '{{.SRC_DIR}}/crates/**/*.rs'
+    generates:
+      - '{{.BIN_DIR}}/linux-amd64-musl/{{.BINARY_NAME}}'
     ignore_error: true
     cmds:
-      - echo "Building static Linux binary with musl..."
       - cargo build --release --target x86_64-unknown-linux-musl
       - mkdir -p ../{{.BIN_DIR}}/linux-amd64-musl
       - cp target/x86_64-unknown-linux-musl/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-amd64-musl/
 
-  # === Cross-compilation with 'cross' tool ===
+  # --- Linux Cross ---
 
-  build:cross:linux-amd64:
+  rust:build:linux:cross:
+    desc: Build for Linux using cross tool
+    cmds:
+      - task: rust:build:linux:cross:amd64
+      - task: rust:build:linux:cross:arm64
+
+  # NOTE: Cross-compilation requires temporarily moving aside the upstream
+  # .cargo/config.toml which specifies clang + mold linker (not available
+  # in cross Docker containers). We move it, build, then restore it.
+  # RUSTFLAGS includes --cfg tokio_unstable needed for tokio-metrics RuntimeMonitor.
+  rust:build:linux:cross:amd64:
     desc: Build for Linux AMD64 using cross
     dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
+      - rust:setup:cross
+    sources:
+      - '{{.SRC_DIR}}/Cargo.toml'
+      - '{{.SRC_DIR}}/Cargo.lock'
+      - '{{.SRC_DIR}}/crates/**/*.rs'
+    generates:
+      - '{{.BIN_DIR}}/linux-amd64/{{.BINARY_NAME}}'
+    env:
+      RUSTFLAGS: "--cfg tokio_unstable"
     cmds:
+      - mv .cargo/config.toml .cargo/config.toml.bak || true
+      - defer: mv .cargo/config.toml.bak .cargo/config.toml || true
       - cross build --release --target x86_64-unknown-linux-gnu
       - mkdir -p ../{{.BIN_DIR}}/linux-amd64
       - cp target/x86_64-unknown-linux-gnu/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-amd64/
 
-  build:cross:linux-arm64:
+  rust:build:linux:cross:arm64:
     desc: Build for Linux ARM64 using cross
     dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
+      - rust:setup:cross
+    sources:
+      - '{{.SRC_DIR}}/Cargo.toml'
+      - '{{.SRC_DIR}}/Cargo.lock'
+      - '{{.SRC_DIR}}/crates/**/*.rs'
+    generates:
+      - '{{.BIN_DIR}}/linux-arm64/{{.BINARY_NAME}}'
+    env:
+      RUSTFLAGS: "--cfg tokio_unstable"
     cmds:
+      - mv .cargo/config.toml .cargo/config.toml.bak || true
+      - defer: mv .cargo/config.toml.bak .cargo/config.toml || true
       - cross build --release --target aarch64-unknown-linux-gnu
       - mkdir -p ../{{.BIN_DIR}}/linux-arm64
       - cp target/aarch64-unknown-linux-gnu/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-arm64/
 
-  build:cross:linux:
-    desc: Build for all Linux targets using cross
-    cmds:
-      - task: build:cross:linux-amd64
-      - task: build:cross:linux-arm64
+  # --- Windows ---
+  # NOTE: Windows builds fail because upstream corrosion uses tokio::signal::unix
+  # which is not available on Windows. The crate would need platform-specific
+  # signal handling to support Windows.
 
-  # === Windows Builds ===
-
-  build:windows-amd64:
-    desc: Build for Windows AMD64 (requires cross-compilation setup)
+  rust:build:windows:
+    desc: Build for Windows AMD64 (UNSUPPORTED - see note above)
     dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
+    sources:
+      - '{{.SRC_DIR}}/Cargo.toml'
+      - '{{.SRC_DIR}}/Cargo.lock'
+      - '{{.SRC_DIR}}/crates/**/*.rs'
+    generates:
+      - '{{.BIN_DIR}}/windows-amd64/{{.BINARY_NAME}}.exe'
     ignore_error: true
     cmds:
-      - echo "Building for Windows AMD64 (requires mingw-w64 toolchain)..."
       - cargo build --release --target x86_64-pc-windows-gnu
       - mkdir -p ../{{.BIN_DIR}}/windows-amd64
       - cp target/x86_64-pc-windows-gnu/release/{{.BINARY_NAME}}.exe ../{{.BIN_DIR}}/windows-amd64/
 
-  # === All Platforms ===
-
-  build:all:
-    desc: Build for all platforms (native only, cross-compile may fail)
+  rust:build:windows:cross:
+    desc: Build for Windows AMD64 using cross (UNSUPPORTED - see note above)
+    dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
+      - rust:setup:cross
+    sources:
+      - '{{.SRC_DIR}}/Cargo.toml'
+      - '{{.SRC_DIR}}/Cargo.lock'
+      - '{{.SRC_DIR}}/crates/**/*.rs'
+    generates:
+      - '{{.BIN_DIR}}/windows-amd64/{{.BINARY_NAME}}.exe'
+    env:
+      RUSTFLAGS: "--cfg tokio_unstable"
     cmds:
-      - task: build:macos
-      - task: build:linux
-      - task: build:windows-amd64
+      - mv .cargo/config.toml .cargo/config.toml.bak || true
+      - defer: mv .cargo/config.toml.bak .cargo/config.toml || true
+      - cross build --release --target x86_64-pc-windows-gnu
+      - mkdir -p ../{{.BIN_DIR}}/windows-amd64
+      - cp target/x86_64-pc-windows-gnu/release/{{.BINARY_NAME}}.exe ../{{.BIN_DIR}}/windows-amd64/
 
-  build:all:cross:
-    desc: Build for all platforms using cross tool
+  # =============================================================================
+  # Rust Quality (rust:check, rust:test, rust:fmt, rust:clippy)
+  # =============================================================================
+
+  rust:check:
+    desc: Check code compiles without building
+    dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
     cmds:
-      - task: build:macos
-      - task: build:cross:linux
+      - cargo check
 
-  # === Utility Tasks ===
+  rust:test:
+    desc: Run tests
+    dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
+    cmds:
+      - cargo test
 
-  clean:
-    desc: Clean build artifacts
+  rust:fmt:
+    desc: Format code
+    dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
+    cmds:
+      - cargo fmt
+
+  rust:fmt:check:
+    desc: Check code formatting
+    dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
+    cmds:
+      - cargo fmt --check
+
+  rust:clippy:
+    desc: Run clippy linter
+    dir: '{{.SRC_DIR}}'
+    deps:
+      - src:clone
+    cmds:
+      - cargo clippy
+
+  rust:clean:
+    desc: Clean Rust build artifacts
     cmds:
       - rm -rf {{.BIN_DIR}}
       - cmd: cargo clean
         dir: '{{.SRC_DIR}}'
         ignore_error: true
+    status:
+      - '! test -d {{.BIN_DIR}}'
+      - '! test -d {{.SRC_DIR}}/target'
 
-  clean:all:
-    desc: Clean everything including source
+  # =============================================================================
+  # Run Tasks (run:*)
+  # =============================================================================
+
+  run:
+    desc: Run corrosion with default config
+    deps:
+      - build
     cmds:
-      - rm -rf {{.BIN_DIR}}
-      - rm -rf {{.SRC_DIR}}
+      - task: run:config:init
+      - '{{.BIN_DIR}}/{{.BINARY_NAME}} agent -c {{.CONFIG_FILE}}'
+    vars:
+      CONFIG_FILE: ./corrosion.toml
 
-  test:
-    desc: Run tests
-    dir: '{{.SRC_DIR}}'
+  run:dev:
+    desc: Run corrosion in development mode
+    deps:
+      - rust:build:dev
     cmds:
-      - cargo test
+      - task: run:config:init
+      - '{{.BIN_DIR}}/{{.BINARY_NAME}}-debug agent -c {{.CONFIG_FILE}}'
+    vars:
+      CONFIG_FILE: ./corrosion.toml
 
-  check:
-    desc: Check code compiles without building
-    dir: '{{.SRC_DIR}}'
+  run:config:init:
+    desc: Initialize config file from example
     cmds:
-      - cargo check
+      - cp {{.SRC_DIR}}/config.example.toml ./corrosion.toml
+    status:
+      - test -f ./corrosion.toml
 
-  fmt:
-    desc: Format code
-    dir: '{{.SRC_DIR}}'
+  run:config:edit:
+    desc: Edit corrosion config file
     cmds:
-      - cargo fmt
+      - ${EDITOR:-vi} ./corrosion.toml
 
-  clippy:
-    desc: Run clippy linter
-    dir: '{{.SRC_DIR}}'
+  run:schema:init:
+    desc: Create schemas directory with example schema
     cmds:
-      - cargo clippy
+      - mkdir -p ./schemas
+      - |
+        cat > ./schemas/example.sql << 'EOF'
+        -- Example schema for corrosion
+        CREATE TABLE IF NOT EXISTS kv (
+          key TEXT PRIMARY KEY,
+          value TEXT
+        );
+        EOF
+    status:
+      - test -d ./schemas
 
-  # === Install cross tool ===
-
-  install:cross:
-    desc: Install the 'cross' tool for cross-compilation
+  run:help:
+    desc: Show corrosion help
+    deps:
+      - build
     cmds:
-      - cargo install cross --git https://github.com/cross-rs/cross
+      - '{{.BIN_DIR}}/{{.BINARY_NAME}} --help'
 
-  # === Full workflow ===
-
-  full:
-    desc: Clone and build for current platform
+  run:version:
+    desc: Show corrosion version
+    deps:
+      - build
     cmds:
-      - task: clone
-      - task: build
-
-  full:macos:
-    desc: Clone and build for macOS (both architectures)
-    cmds:
-      - task: clone
-      - task: build:macos
-
-  full:all:
-    desc: Clone, setup, and attempt to build for all platforms
-    cmds:
-      - task: clone
-      - task: setup:targets
-      - task: build:all
+      - '{{.BIN_DIR}}/{{.BINARY_NAME}} --version'

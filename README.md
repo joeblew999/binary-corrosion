@@ -2,6 +2,11 @@
 
 This repository provides build automation for [Corrosion](https://github.com/superfly/corrosion) - a gossip-based service discovery tool from Fly.io.
 
+https://fly.io/blog/corrosion/
+
+
+
+
 ## What is Corrosion?
 
 Corrosion is a distributed SQLite replication system that:
@@ -68,3 +73,17 @@ This is a build wrapper around the upstream project:
 ## License
 
 Corrosion is licensed under the Apache 2.0 license. See the upstream repository for details.
+
+## useful links
+
+### RTT
+
+https://rtt.fly.dev
+
+https://rtt.fly.dev/to/s3
+
+### s3 backed volumes
+
+https://community.fly.io/t/bottomless-s3-backed-volumes/15648
+
+
