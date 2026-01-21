@@ -2,9 +2,20 @@
 
 Build automation for [Corrosion](https://github.com/superfly/corrosion) - a distributed SQLite replication system from Fly.io.
 
-corrosion uses SQLite under the hood with CRDTs (cr-sqlite) for replication.
+Corrosion uses SQLite under the hood with CRDTs (cr-sqlite) for replication.
 
-## Prerequisites
+## Releases
+
+Pre-built binaries available at [GitHub Releases](https://github.com/joeblew999/binary-corrosion/releases).
+
+| Platform | Download |
+|----------|----------|
+| Linux AMD64 | [corrosion-linux-amd64.tar.gz](https://github.com/joeblew999/binary-corrosion/releases/latest/download/corrosion-linux-amd64.tar.gz) |
+| Linux ARM64 | [corrosion-linux-arm64.tar.gz](https://github.com/joeblew999/binary-corrosion/releases/latest/download/corrosion-linux-arm64.tar.gz) |
+| macOS ARM64 | [corrosion-darwin-arm64.tar.gz](https://github.com/joeblew999/binary-corrosion/releases/latest/download/corrosion-darwin-arm64.tar.gz) |
+| macOS AMD64 | [corrosion-darwin-amd64.tar.gz](https://github.com/joeblew999/binary-corrosion/releases/latest/download/corrosion-darwin-amd64.tar.gz) |
+
+## Development
 
 - [Task](https://taskfile.dev)
 - [Rust](https://rustup.rs) (1.88+)
