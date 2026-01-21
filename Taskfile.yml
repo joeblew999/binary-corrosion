@@ -307,28 +307,35 @@ tasks:
 
   # ===========================================================================
   # Rust Build Windows (rust:build:windows:*)
-  # NOTE: Windows builds fail because upstream corrosion uses tokio::signal::unix
-  # which is not available on Windows.
+  # NOTE: Requires Windows machine or MinGW cross-compiler
   # ===========================================================================
 
   rust:build:windows:native:
-    desc: Build for Windows AMD64 (UNSUPPORTED)
+    desc: Build for Windows AMD64 (native, run on Windows)
     dir: '{{.SRC_DIR}}'
     deps: [src:clone]
+    vars:
+      # Use MSVC on Windows CI (set via CARGO_BUILD_TARGET env), otherwise GNU
+      WIN_TARGET: '{{.CARGO_BUILD_TARGET | default "x86_64-pc-windows-msvc"}}'
     sources:
       - '{{.SRC_DIR}}/Cargo.toml'
       - '{{.SRC_DIR}}/Cargo.lock'
       - '{{.SRC_DIR}}/crates/**/*.rs'
     generates:
       - '{{.BIN_DIR}}/windows-amd64/{{.BINARY_NAME}}.exe'
-    ignore_error: true
     cmds:
-      - cargo build --release --target x86_64-pc-windows-gnu
-      - mkdir -p ../{{.BIN_DIR}}/windows-amd64
-      - cp target/x86_64-pc-windows-gnu/release/{{.BINARY_NAME}}.exe ../{{.BIN_DIR}}/windows-amd64/
+      - cargo build --release --target {{.WIN_TARGET}}
+      - cmd: mkdir -p ../{{.BIN_DIR}}/windows-amd64
+        platforms: [linux, darwin]
+      - cmd: if not exist "..\\{{.BIN_DIR}}\\windows-amd64" mkdir "..\\{{.BIN_DIR}}\\windows-amd64"
+        platforms: [windows]
+      - cmd: cp target/{{.WIN_TARGET}}/release/{{.BINARY_NAME}}.exe ../{{.BIN_DIR}}/windows-amd64/
+        platforms: [linux, darwin]
+      - cmd: copy "target\\{{.WIN_TARGET}}\\release\\{{.BINARY_NAME}}.exe" "..\\{{.BIN_DIR}}\\windows-amd64\\"
+        platforms: [windows]
 
   rust:build:windows:cross:
-    desc: Build for Windows AMD64 using cross (UNSUPPORTED)
+    desc: Build for Windows AMD64 using cross
     dir: '{{.SRC_DIR}}'
     deps:
       - src:clone
