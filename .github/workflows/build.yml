@@ -44,9 +44,7 @@ jobs:
           fi
 
       - name: Install Rust
-        uses: dtolnay/rust-action@stable
-        with:
-          toolchain: stable
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Add target
         run: rustup target add ${{ matrix.target }}
@@ -86,9 +84,7 @@ jobs:
           git clone https://github.com/superfly/corrosion.git .src
 
       - name: Install Rust
-        uses: dtolnay/rust-action@stable
-        with:
-          toolchain: stable
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install cross-compilation tools
         if: matrix.target == 'aarch64-unknown-linux-gnu'
