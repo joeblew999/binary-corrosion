@@ -140,9 +140,11 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
-      - name: Add target
-        run: rustup target add ${{ matrix.target }}
+      - name: Verify target
+        run: rustup target list --installed
 
       - name: Cache cargo
         uses: actions/cache@v4
