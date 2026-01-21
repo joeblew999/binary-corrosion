@@ -23,8 +23,6 @@ Thumbs.db
 # Rust
 *.rs.bk
 
-# Runtime config
+# Runtime data
+.data/
 corrosion.toml
-schemas/
-corrosion.db
-*.sock
