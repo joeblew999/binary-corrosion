@@ -118,6 +118,16 @@ jobs:
           path: .bin/${{ matrix.name }}/
 
   build-windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            name: windows-amd64
+            task: rust:build:windows:native
+          - target: aarch64-pc-windows-msvc
+            name: windows-arm64
+            task: rust:build:windows:arm64
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -132,7 +142,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Add target
-        run: rustup target add x86_64-pc-windows-msvc
+        run: rustup target add ${{ matrix.target }}
 
       - name: Cache cargo
         uses: actions/cache@v4
@@ -143,20 +153,20 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             .src/target/
-          key: ${{ runner.os }}-x86_64-pc-windows-msvc-cargo-${{ hashFiles('.src/**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('.src/**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-x86_64-pc-windows-msvc-cargo-
+            ${{ runner.os }}-${{ matrix.target }}-cargo-
 
       - name: Build
-        run: task rust:build:windows:native
+        run: task ${{ matrix.task }}
         env:
-          CARGO_BUILD_TARGET: x86_64-pc-windows-msvc
+          CARGO_BUILD_TARGET: ${{ matrix.target }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: corrosion-windows-amd64
-          path: .bin/windows-amd64/
+          name: corrosion-${{ matrix.name }}
+          path: .bin/${{ matrix.name }}/
 
   release:
     needs: [build-macos, build-linux, build-windows]

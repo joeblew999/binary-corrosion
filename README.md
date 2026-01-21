@@ -15,6 +15,7 @@ Pre-built binaries available at [GitHub Releases](https://github.com/joeblew999/
 | macOS ARM64 | [corrosion-darwin-arm64.tar.gz](https://github.com/joeblew999/binary-corrosion/releases/latest/download/corrosion-darwin-arm64.tar.gz) |
 | macOS AMD64 | [corrosion-darwin-amd64.tar.gz](https://github.com/joeblew999/binary-corrosion/releases/latest/download/corrosion-darwin-amd64.tar.gz) |
 | Windows AMD64 | [corrosion-windows-amd64.tar.gz](https://github.com/joeblew999/binary-corrosion/releases/latest/download/corrosion-windows-amd64.tar.gz) |
+| Windows ARM64 | [corrosion-windows-arm64.tar.gz](https://github.com/joeblew999/binary-corrosion/releases/latest/download/corrosion-windows-arm64.tar.gz) |
 
 ## Development
 

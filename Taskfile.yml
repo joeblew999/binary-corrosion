@@ -85,6 +85,7 @@ tasks:
         aarch64-unknown-linux-musl
         x86_64-pc-windows-msvc
         x86_64-pc-windows-gnu
+        aarch64-pc-windows-msvc
     cmds:
       - for: { var: TARGETS }
         cmd: rustup target add {{.ITEM}} || true
@@ -136,7 +137,7 @@ tasks:
     cmds:
       - task: rust:build:macos:all
       - task: rust:build:linux:all
-      - task: rust:build:windows:native
+      - task: rust:build:windows:all
 
   rust:build:clean:
     desc: Clean Rust build artifacts
@@ -333,6 +334,33 @@ tasks:
         platforms: [linux, darwin]
       - cmd: copy "target\\{{.WIN_TARGET}}\\release\\{{.BINARY_NAME}}.exe" "..\\{{.BIN_DIR}}\\windows-amd64\\"
         platforms: [windows]
+
+  rust:build:windows:arm64:
+    desc: Build for Windows ARM64 (cross-compile from x64)
+    dir: '{{.SRC_DIR}}'
+    deps: [src:clone]
+    sources:
+      - '{{.SRC_DIR}}/Cargo.toml'
+      - '{{.SRC_DIR}}/Cargo.lock'
+      - '{{.SRC_DIR}}/crates/**/*.rs'
+    generates:
+      - '{{.BIN_DIR}}/windows-arm64/{{.BINARY_NAME}}.exe'
+    cmds:
+      - cargo build --release --target aarch64-pc-windows-msvc
+      - cmd: mkdir -p ../{{.BIN_DIR}}/windows-arm64
+        platforms: [linux, darwin]
+      - cmd: if not exist "..\\{{.BIN_DIR}}\\windows-arm64" mkdir "..\\{{.BIN_DIR}}\\windows-arm64"
+        platforms: [windows]
+      - cmd: cp target/aarch64-pc-windows-msvc/release/{{.BINARY_NAME}}.exe ../{{.BIN_DIR}}/windows-arm64/
+        platforms: [linux, darwin]
+      - cmd: copy "target\\aarch64-pc-windows-msvc\\release\\{{.BINARY_NAME}}.exe" "..\\{{.BIN_DIR}}\\windows-arm64\\"
+        platforms: [windows]
+
+  rust:build:windows:all:
+    desc: Build for all Windows architectures
+    cmds:
+      - task: rust:build:windows:native
+      - task: rust:build:windows:arm64
 
   rust:build:windows:cross:
     desc: Build for Windows AMD64 using cross
