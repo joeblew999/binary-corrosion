@@ -7,6 +7,11 @@ vars:
   BIN_DIR: .bin
   BINARY_NAME: corrosion
 
+# Global environment for all Rust builds
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "--cfg tokio_unstable"
+
 includes:
   fly:
     taskfile: ./Taskfile.fly.yml
@@ -265,8 +270,6 @@ tasks:
     deps:
       - src:clone
       - rust:setup:cross
-    env:
-      RUSTFLAGS: "--cfg tokio_unstable"
     cmds:
       - mv .cargo/config.toml .cargo/config.toml.bak || true
       - defer: mv .cargo/config.toml.bak .cargo/config.toml || true
@@ -282,20 +285,14 @@ tasks:
     deps:
       - src:clone
       - rust:setup:cross
-    sources:
-      - '{{.SRC_DIR}}/Cargo.toml'
-      - '{{.SRC_DIR}}/Cargo.lock'
-      - '{{.SRC_DIR}}/crates/**/*.rs'
-    generates:
-      - '{{.BIN_DIR}}/linux-arm64/{{.BINARY_NAME}}'
-    env:
-      RUSTFLAGS: "--cfg tokio_unstable"
     cmds:
       - mv .cargo/config.toml .cargo/config.toml.bak || true
       - defer: mv .cargo/config.toml.bak .cargo/config.toml || true
       - cross build --release --target aarch64-unknown-linux-gnu
       - mkdir -p ../{{.BIN_DIR}}/linux-arm64
       - cp target/aarch64-unknown-linux-gnu/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-arm64/
+    status:
+      - test -f ../{{.BIN_DIR}}/linux-arm64/{{.BINARY_NAME}}
 
   # ===========================================================================
   # Rust Build Windows (rust:build:windows:*)
