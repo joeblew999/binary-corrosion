@@ -13,42 +13,9 @@ includes:
     optional: true
 
 tasks:
-  default:
-    desc: Show available tasks
-    cmds:
-      - task --list
-
-  # =============================================================================
-  # Main Entry Points
-  # =============================================================================
-
-  build:
-    desc: Clone and build for current platform
-    cmds:
-      - task: src:clone
-      - task: rust:build
-
-  build:all:
-    desc: Clone, setup, and build for all platforms
-    cmds:
-      - task: src:clone
-      - task: rust:setup:targets
-      - task: rust:build:all
-
-  clean:
-    desc: Clean build artifacts (keeps source)
-    cmds:
-      - task: rust:clean
-
-  clean:all:
-    desc: Clean everything including source
-    cmds:
-      - task: rust:clean
-      - task: src:clean
-
-  # =============================================================================
+  # ===========================================================================
   # Source Management (src:*)
-  # =============================================================================
+  # ===========================================================================
 
   src:clone:
     desc: Clone corrosion source to .src directory
@@ -61,8 +28,7 @@ tasks:
   src:update:
     desc: Update the cloned source
     dir: '{{.SRC_DIR}}'
-    deps:
-      - src:clone
+    deps: [src:clone]
     cmds:
       - git fetch origin
       - git pull origin main
@@ -74,15 +40,14 @@ tasks:
     status:
       - '! test -d {{.SRC_DIR}}'
 
-  # =============================================================================
+  # ===========================================================================
   # Rust Setup (rust:setup:*)
-  # =============================================================================
+  # ===========================================================================
 
-  rust:setup:
-    desc: Install required Rust toolchain and targets
+  rust:setup:show:
+    desc: Show current Rust toolchain
     cmds:
       - rustup show
-      - task: rust:setup:targets
 
   rust:setup:targets:
     desc: Install cross-compilation targets
@@ -108,15 +73,14 @@ tasks:
     status:
       - which cross
 
-  # =============================================================================
+  # ===========================================================================
   # Rust Build (rust:build:*)
-  # =============================================================================
+  # ===========================================================================
 
-  rust:build:
+  rust:build:release:
     desc: Build for current platform (release)
     dir: '{{.SRC_DIR}}'
-    deps:
-      - src:clone
+    deps: [src:clone]
     sources:
       - '{{.SRC_DIR}}/Cargo.toml'
       - '{{.SRC_DIR}}/Cargo.lock'
@@ -128,11 +92,10 @@ tasks:
       - mkdir -p ../{{.BIN_DIR}}
       - cp target/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/
 
-  rust:build:dev:
+  rust:build:debug:
     desc: Build for current platform (debug)
     dir: '{{.SRC_DIR}}'
-    deps:
-      - src:clone
+    deps: [src:clone]
     sources:
       - '{{.SRC_DIR}}/Cargo.toml'
       - '{{.SRC_DIR}}/Cargo.lock'
@@ -147,13 +110,26 @@ tasks:
   rust:build:all:
     desc: Build for all platforms
     cmds:
-      - task: rust:build:macos
-      - task: rust:build:linux
-      - task: rust:build:windows
+      - task: rust:build:macos:all
+      - task: rust:build:linux:all
+      - task: rust:build:windows:native
 
-  # --- macOS ---
+  rust:build:clean:
+    desc: Clean Rust build artifacts
+    cmds:
+      - rm -rf {{.BIN_DIR}}
+      - cmd: cargo clean
+        dir: '{{.SRC_DIR}}'
+        ignore_error: true
+    status:
+      - '! test -d {{.BIN_DIR}}'
+      - '! test -d {{.SRC_DIR}}/target'
 
-  rust:build:macos:
+  # ===========================================================================
+  # Rust Build macOS (rust:build:macos:*)
+  # ===========================================================================
+
+  rust:build:macos:all:
     desc: Build for both macOS architectures
     cmds:
       - task: rust:build:macos:arm64
@@ -162,8 +138,7 @@ tasks:
   rust:build:macos:arm64:
     desc: Build for macOS ARM64 (Apple Silicon)
     dir: '{{.SRC_DIR}}'
-    deps:
-      - src:clone
+    deps: [src:clone]
     sources:
       - '{{.SRC_DIR}}/Cargo.toml'
       - '{{.SRC_DIR}}/Cargo.lock'
@@ -178,8 +153,7 @@ tasks:
   rust:build:macos:amd64:
     desc: Build for macOS AMD64 (Intel)
     dir: '{{.SRC_DIR}}'
-    deps:
-      - src:clone
+    deps: [src:clone]
     sources:
       - '{{.SRC_DIR}}/Cargo.toml'
       - '{{.SRC_DIR}}/Cargo.lock'
@@ -205,9 +179,11 @@ tasks:
       - mkdir -p {{.BIN_DIR}}/darwin-universal
       - lipo -create -output {{.BIN_DIR}}/darwin-universal/{{.BINARY_NAME}} {{.BIN_DIR}}/darwin-arm64/{{.BINARY_NAME}} {{.BIN_DIR}}/darwin-amd64/{{.BINARY_NAME}}
 
-  # --- Linux ---
+  # ===========================================================================
+  # Rust Build Linux (rust:build:linux:*)
+  # ===========================================================================
 
-  rust:build:linux:
+  rust:build:linux:all:
     desc: Build for Linux (amd64 + arm64)
     cmds:
       - task: rust:build:linux:amd64
@@ -216,8 +192,7 @@ tasks:
   rust:build:linux:amd64:
     desc: Build for Linux AMD64
     dir: '{{.SRC_DIR}}'
-    deps:
-      - src:clone
+    deps: [src:clone]
     sources:
       - '{{.SRC_DIR}}/Cargo.toml'
       - '{{.SRC_DIR}}/Cargo.lock'
@@ -233,8 +208,7 @@ tasks:
   rust:build:linux:arm64:
     desc: Build for Linux ARM64
     dir: '{{.SRC_DIR}}'
-    deps:
-      - src:clone
+    deps: [src:clone]
     sources:
       - '{{.SRC_DIR}}/Cargo.toml'
       - '{{.SRC_DIR}}/Cargo.lock'
@@ -250,8 +224,7 @@ tasks:
   rust:build:linux:musl:
     desc: Build for Linux with musl (static binary)
     dir: '{{.SRC_DIR}}'
-    deps:
-      - src:clone
+    deps: [src:clone]
     sources:
       - '{{.SRC_DIR}}/Cargo.toml'
       - '{{.SRC_DIR}}/Cargo.lock'
@@ -264,18 +237,20 @@ tasks:
       - mkdir -p ../{{.BIN_DIR}}/linux-amd64-musl
       - cp target/x86_64-unknown-linux-musl/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-amd64-musl/
 
-  # --- Linux Cross ---
+  # ===========================================================================
+  # Rust Build Linux Cross (rust:build:linux:cross:*)
+  # NOTE: Cross-compilation requires temporarily moving aside the upstream
+  # .cargo/config.toml which specifies clang + mold linker (not available
+  # in cross Docker containers). We move it, build, then restore it.
+  # RUSTFLAGS includes --cfg tokio_unstable needed for tokio-metrics.
+  # ===========================================================================
 
-  rust:build:linux:cross:
+  rust:build:linux:cross:all:
     desc: Build for Linux using cross tool
     cmds:
       - task: rust:build:linux:cross:amd64
       - task: rust:build:linux:cross:arm64
 
-  # NOTE: Cross-compilation requires temporarily moving aside the upstream
-  # .cargo/config.toml which specifies clang + mold linker (not available
-  # in cross Docker containers). We move it, build, then restore it.
-  # RUSTFLAGS includes --cfg tokio_unstable needed for tokio-metrics RuntimeMonitor.
   rust:build:linux:cross:amd64:
     desc: Build for Linux AMD64 using cross
     dir: '{{.SRC_DIR}}'
@@ -318,16 +293,16 @@ tasks:
       - mkdir -p ../{{.BIN_DIR}}/linux-arm64
       - cp target/aarch64-unknown-linux-gnu/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-arm64/
 
-  # --- Windows ---
+  # ===========================================================================
+  # Rust Build Windows (rust:build:windows:*)
   # NOTE: Windows builds fail because upstream corrosion uses tokio::signal::unix
-  # which is not available on Windows. The crate would need platform-specific
-  # signal handling to support Windows.
+  # which is not available on Windows.
+  # ===========================================================================
 
-  rust:build:windows:
-    desc: Build for Windows AMD64 (UNSUPPORTED - see note above)
+  rust:build:windows:native:
+    desc: Build for Windows AMD64 (UNSUPPORTED)
     dir: '{{.SRC_DIR}}'
-    deps:
-      - src:clone
+    deps: [src:clone]
     sources:
       - '{{.SRC_DIR}}/Cargo.toml'
       - '{{.SRC_DIR}}/Cargo.lock'
@@ -341,7 +316,7 @@ tasks:
       - cp target/x86_64-pc-windows-gnu/release/{{.BINARY_NAME}}.exe ../{{.BIN_DIR}}/windows-amd64/
 
   rust:build:windows:cross:
-    desc: Build for Windows AMD64 using cross (UNSUPPORTED - see note above)
+    desc: Build for Windows AMD64 using cross (UNSUPPORTED)
     dir: '{{.SRC_DIR}}'
     deps:
       - src:clone
@@ -361,84 +336,48 @@ tasks:
       - mkdir -p ../{{.BIN_DIR}}/windows-amd64
       - cp target/x86_64-pc-windows-gnu/release/{{.BINARY_NAME}}.exe ../{{.BIN_DIR}}/windows-amd64/
 
-  # =============================================================================
-  # Rust Quality (rust:check, rust:test, rust:fmt, rust:clippy)
-  # =============================================================================
+  # ===========================================================================
+  # Rust Quality (rust:quality:*)
+  # ===========================================================================
 
-  rust:check:
+  rust:quality:check:
     desc: Check code compiles without building
     dir: '{{.SRC_DIR}}'
-    deps:
-      - src:clone
+    deps: [src:clone]
     cmds:
       - cargo check
 
-  rust:test:
+  rust:quality:test:
     desc: Run tests
     dir: '{{.SRC_DIR}}'
-    deps:
-      - src:clone
+    deps: [src:clone]
     cmds:
       - cargo test
 
-  rust:fmt:
+  rust:quality:fmt:
     desc: Format code
     dir: '{{.SRC_DIR}}'
-    deps:
-      - src:clone
+    deps: [src:clone]
     cmds:
       - cargo fmt
 
-  rust:fmt:check:
+  rust:quality:fmt:check:
     desc: Check code formatting
     dir: '{{.SRC_DIR}}'
-    deps:
-      - src:clone
+    deps: [src:clone]
     cmds:
       - cargo fmt --check
 
-  rust:clippy:
+  rust:quality:clippy:
     desc: Run clippy linter
     dir: '{{.SRC_DIR}}'
-    deps:
-      - src:clone
+    deps: [src:clone]
     cmds:
       - cargo clippy
 
-  rust:clean:
-    desc: Clean Rust build artifacts
-    cmds:
-      - rm -rf {{.BIN_DIR}}
-      - cmd: cargo clean
-        dir: '{{.SRC_DIR}}'
-        ignore_error: true
-    status:
-      - '! test -d {{.BIN_DIR}}'
-      - '! test -d {{.SRC_DIR}}/target'
-
-  # =============================================================================
-  # Run Tasks (run:*)
-  # =============================================================================
-
-  run:
-    desc: Run corrosion with default config
-    deps:
-      - build
-    cmds:
-      - task: run:config:init
-      - '{{.BIN_DIR}}/{{.BINARY_NAME}} agent -c {{.CONFIG_FILE}}'
-    vars:
-      CONFIG_FILE: ./corrosion.toml
-
-  run:dev:
-    desc: Run corrosion in development mode
-    deps:
-      - rust:build:dev
-    cmds:
-      - task: run:config:init
-      - '{{.BIN_DIR}}/{{.BINARY_NAME}}-debug agent -c {{.CONFIG_FILE}}'
-    vars:
-      CONFIG_FILE: ./corrosion.toml
+  # ===========================================================================
+  # Run Config (run:config:*)
+  # ===========================================================================
 
   run:config:init:
     desc: Initialize config file with local paths
@@ -475,7 +414,7 @@ tasks:
     cmds:
       - ${EDITOR:-vi} ./corrosion.toml
 
-  run:schema:init:
+  run:config:schema:
     desc: Create schemas directory with example schema
     cmds:
       - mkdir -p ./.data/schemas
@@ -491,10 +430,27 @@ tasks:
     status:
       - test -f ./.data/schemas/example.sql
 
-  run:start:
+  # ===========================================================================
+  # Run Agent (run:agent:*)
+  # ===========================================================================
+
+  run:agent:foreground:
+    desc: Run corrosion in foreground
+    deps: [rust:build:release]
+    cmds:
+      - task: run:config:init
+      - '{{.BIN_DIR}}/{{.BINARY_NAME}} agent -c ./corrosion.toml'
+
+  run:agent:debug:
+    desc: Run corrosion in debug mode
+    deps: [rust:build:debug]
+    cmds:
+      - task: run:config:init
+      - '{{.BIN_DIR}}/{{.BINARY_NAME}}-debug agent -c ./corrosion.toml'
+
+  run:agent:start:
     desc: Start corrosion in the background
-    deps:
-      - build
+    deps: [rust:build:release]
     cmds:
       - task: run:config:init
       - cmd: bash -c '{{.BIN_DIR}}/{{.BINARY_NAME}} agent -c ./corrosion.toml >> ./.data/corrosion.log 2>&1 & echo $! > ./.data/corrosion.pid'
@@ -503,7 +459,7 @@ tasks:
     status:
       - test -f ./.data/corrosion.pid && kill -0 $(cat ./.data/corrosion.pid) 2>/dev/null
 
-  run:stop:
+  run:agent:stop:
     desc: Stop corrosion background process
     silent: true
     cmds:
@@ -521,7 +477,13 @@ tasks:
           echo "No PID file found"
         fi
 
-  run:status:
+  run:agent:restart:
+    desc: Restart corrosion (stop + start)
+    cmds:
+      - task: run:agent:stop
+      - task: run:agent:start
+
+  run:agent:status:
     desc: Check if corrosion is running
     silent: true
     cmds:
@@ -537,36 +499,48 @@ tasks:
           echo "Corrosion is not running"
         fi
 
-  run:restart:
-    desc: Restart corrosion (stop + start)
-    cmds:
-      - task: run:stop
-      - task: run:start
-
-  run:logs:
+  run:agent:logs:
     desc: Tail corrosion logs
     cmds:
       - tail -f ./.data/corrosion.log
 
-  run:clean:
-    desc: Clean runtime data (db, logs, config)
-    cmds:
-      - task: run:stop
-      - rm -rf ./.data
-      - rm -f ./corrosion.toml
-      - echo "Cleaned runtime data"
+  # ===========================================================================
+  # Run Info (run:info:*)
+  # ===========================================================================
 
-  run:help:
+  run:info:help:
     desc: Show corrosion help
-    deps:
-      - build
+    deps: [rust:build:release]
     cmds:
       - '{{.BIN_DIR}}/{{.BINARY_NAME}} --help'
 
-  run:version:
+  run:info:version:
     desc: Show corrosion version
-    deps:
-      - build
+    deps: [rust:build:release]
     cmds:
       - '{{.BIN_DIR}}/{{.BINARY_NAME}} --version'
 
+  # ===========================================================================
+  # Run Clean (run:clean:*)
+  # ===========================================================================
+
+  run:clean:data:
+    desc: Clean runtime data (db, logs, pid)
+    cmds:
+      - task: run:agent:stop
+      - rm -rf ./.data
+      - echo "Cleaned runtime data"
+
+  run:clean:config:
+    desc: Clean config file
+    cmds:
+      - rm -f ./corrosion.toml
+      - echo "Cleaned config"
+
+  run:clean:all:
+    desc: Clean all runtime data and config
+    cmds:
+      - task: run:agent:stop
+      - rm -rf ./.data
+      - rm -f ./corrosion.toml
+      - echo "Cleaned all runtime data and config"
