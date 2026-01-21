@@ -106,14 +106,7 @@ jobs:
           path: .bin/${{ matrix.name }}/
 
   build-windows:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: windows-amd64
-            task: rust:build:windows:native
-          - name: windows-arm64
-            task: rust:build:windows:arm64
+    # Note: Windows ARM64 blocked by ring crate C code incompatibility
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -135,18 +128,18 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             .src/target/
-          key: ${{ runner.os }}-${{ matrix.name }}-cargo-v3-${{ hashFiles('.src/**/Cargo.lock') }}
+          key: ${{ runner.os }}-windows-amd64-cargo-v3-${{ hashFiles('.src/**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.name }}-cargo-v3-
+            ${{ runner.os }}-windows-amd64-cargo-v3-
 
       - name: Build
-        run: task ${{ matrix.task }}
+        run: task rust:build:windows:native
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: corrosion-${{ matrix.name }}
-          path: .bin/${{ matrix.name }}/
+          name: corrosion-windows-amd64
+          path: .bin/windows-amd64/
 
   release:
     needs: [build-macos, build-linux, build-windows]

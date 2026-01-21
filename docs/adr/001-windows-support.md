@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed** - Under evaluation
+**Implemented** - Windows AMD64 supported, ARM64 blocked by dependency
 
 ## Context
 
@@ -21,13 +21,14 @@ The upstream project (superfly/corrosion) does not currently support Windows.
 
 ### Blockers Identified
 
-| Category | Issue | Crates Affected | Complexity |
-|----------|-------|-----------------|------------|
-| **Signal Handling** | `tokio::signal::unix` API | tripwire | High |
-| **Signal Constants** | SIGTERM/SIGINT don't exist | tripwire, spawn | High |
-| **Unix File APIs** | `AsRawFd`, `FileExt`, `fcntl`, `flock` | sqlite3-restore | Medium |
-| **nix Crate** | Unix system calls library | sqlite3-restore | Medium |
-| **Systemd** | Linux-only service integration | corrosion | Low (already conditional) |
+| Category | Issue | Crates Affected | Complexity | Status |
+|----------|-------|-----------------|------------|--------|
+| **Signal Handling** | `tokio::signal::unix` API | tripwire | High | ✅ Fixed |
+| **Signal Constants** | SIGTERM/SIGINT don't exist | tripwire, spawn | High | ✅ Fixed |
+| **Unix File APIs** | `AsRawFd`, `FileExt`, `fcntl`, `flock` | sqlite3-restore | Medium | ✅ Fixed |
+| **nix Crate** | Unix system calls library | sqlite3-restore | Medium | ✅ Fixed |
+| **Systemd** | Linux-only service integration | corrosion | Low (already conditional) | ✅ N/A |
+| **ring 0.16.x** | C code doesn't compile for ARM64 | TLS/crypto | N/A | ❌ Blocks ARM64 |
 
 ### Detailed Breakdown
 
