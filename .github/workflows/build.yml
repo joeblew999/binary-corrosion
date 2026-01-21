@@ -10,6 +10,7 @@ on:
 jobs:
   build-macos:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
@@ -36,6 +37,19 @@ jobs:
       - name: Add target
         run: rustup target add ${{ matrix.target }}
 
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            .src/target/
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('.src/**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-
+
       - name: Build
         run: task ${{ matrix.task }}
 
@@ -47,6 +61,7 @@ jobs:
 
   build-linux:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
@@ -77,9 +92,21 @@ jobs:
       - name: Add target
         run: rustup target add ${{ matrix.target }}
 
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            .src/target/
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('.src/**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-
+
       - name: Build
         env:
-          # Linker for ARM64 cross-compilation (not in Taskfile as it's CI-specific)
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'aarch64-linux-gnu-gcc' || '' }}
         run: task ${{ matrix.task }}
 
@@ -99,12 +126,12 @@ jobs:
         with:
           path: dist
 
-      - name: List artifacts
-        run: ls -laR dist/
-
       - name: Create checksums
         run: |
           cd dist
           for dir in */; do
             (cd "$dir" && sha256sum * > checksums.txt 2>/dev/null || true)
           done
+
+      - name: List artifacts
+        run: ls -laR dist/
