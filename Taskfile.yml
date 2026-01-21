@@ -500,6 +500,7 @@ tasks:
 
   run:stop:
     desc: Stop corrosion background process
+    silent: true
     cmds:
       - |
         if [ -f ./.data/corrosion.pid ]; then
@@ -517,6 +518,7 @@ tasks:
 
   run:status:
     desc: Check if corrosion is running
+    silent: true
     cmds:
       - |
         if [ -f ./.data/corrosion.pid ]; then
@@ -530,10 +532,24 @@ tasks:
           echo "Corrosion is not running"
         fi
 
+  run:restart:
+    desc: Restart corrosion (stop + start)
+    cmds:
+      - task: run:stop
+      - task: run:start
+
   run:logs:
     desc: Tail corrosion logs
     cmds:
       - tail -f ./.data/corrosion.log
+
+  run:clean:
+    desc: Clean runtime data (db, logs, config)
+    cmds:
+      - task: run:stop
+      - rm -rf ./.data
+      - rm -f ./corrosion.toml
+      - echo "Cleaned runtime data"
 
   run:help:
     desc: Show corrosion help
