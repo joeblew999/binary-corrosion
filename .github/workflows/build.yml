@@ -18,30 +18,20 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             name: darwin-arm64
+            task: build:macos-arm64
           - os: macos-13
             target: x86_64-apple-darwin
             name: darwin-amd64
+            task: build:macos-amd64
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout wrapper repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Clone upstream source
-        run: |
-          rm -rf .src
-          git clone https://github.com/superfly/corrosion.git .src
-
-      - name: Patch libsystemd dependency for macOS
-        run: |
-          cd .src/crates/corrosion
-          # Make libsystemd conditional on Linux only
-          sed -i '' 's/^libsystemd = "0.7.0"$/# libsystemd moved to target-specific deps/' Cargo.toml
-          # Add target-specific dependency if not already present
-          if ! grep -q "target.'cfg(target_os = \"linux\")'\.dependencies" Cargo.toml; then
-            echo '' >> Cargo.toml
-            echo '[target.'\''cfg(target_os = "linux")'\''.dependencies]' >> Cargo.toml
-            echo 'libsystemd = "0.7.0"' >> Cargo.toml
-          fi
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -49,21 +39,26 @@ jobs:
       - name: Add target
         run: rustup target add ${{ matrix.target }}
 
-      - name: Build
+      - name: Clone and patch source
         run: |
-          cd .src
-          cargo build --release --target ${{ matrix.target }}
+          task clone
+          # Patch libsystemd for macOS
+          cd .src/crates/corrosion
+          sed -i '' 's/^libsystemd = "0.7.0"$/# libsystemd moved to target-specific deps/' Cargo.toml
+          if ! grep -q "target.'cfg(target_os = \"linux\")'\.dependencies" Cargo.toml; then
+            echo '' >> Cargo.toml
+            echo '[target.'\''cfg(target_os = "linux")'\''.dependencies]' >> Cargo.toml
+            echo 'libsystemd = "0.7.0"' >> Cargo.toml
+          fi
 
-      - name: Prepare artifact
-        run: |
-          mkdir -p dist/${{ matrix.name }}
-          cp .src/target/${{ matrix.target }}/release/corrosion dist/${{ matrix.name }}/
+      - name: Build
+        run: task ${{ matrix.task }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: corrosion-${{ matrix.name }}
-          path: dist/${{ matrix.name }}/
+          path: bin/${{ matrix.name }}/
 
   build-linux:
     strategy:
@@ -71,17 +66,19 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             name: linux-amd64
+            task: build:linux-amd64
           - target: aarch64-unknown-linux-gnu
             name: linux-arm64
+            task: build:linux-arm64
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout wrapper repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Clone upstream source
-        run: |
-          rm -rf .src
-          git clone https://github.com/superfly/corrosion.git .src
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -95,24 +92,21 @@ jobs:
       - name: Add target
         run: rustup target add ${{ matrix.target }}
 
+      - name: Clone source
+        run: task clone
+
       - name: Build
         run: |
-          cd .src
           if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
             export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
           fi
-          cargo build --release --target ${{ matrix.target }}
-
-      - name: Prepare artifact
-        run: |
-          mkdir -p dist/${{ matrix.name }}
-          cp .src/target/${{ matrix.target }}/release/corrosion dist/${{ matrix.name }}/
+          task ${{ matrix.task }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: corrosion-${{ matrix.name }}
-          path: dist/${{ matrix.name }}/
+          path: bin/${{ matrix.name }}/
 
   release:
     needs: [build-macos, build-linux]
