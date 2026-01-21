@@ -1,0 +1,192 @@
+# https://taskfile.dev
+version: '3'
+
+# Fly.io CLI tasks
+#
+# App-specific commands use FLY_APP var. Set it with:
+#   task fly:app:status FLY_APP=myapp
+# Or set FLY_APP env var, or create a fly.toml in the project root.
+
+vars:
+  FLY_VERSION: v0.4.3
+  FLY_BIN: '{{.BIN_DIR}}/fly'
+
+tasks:
+  # ===========================================================================
+  # Setup (fly:setup:*)
+  # ===========================================================================
+
+  setup:install:
+    desc: Install flyctl to .bin
+    vars:
+      PWD:
+        sh: pwd
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - GOBIN={{.PWD}}/{{.BIN_DIR}} go install github.com/superfly/flyctl@{{.FLY_VERSION}}
+      - mv {{.BIN_DIR}}/flyctl {{.FLY_BIN}} || true
+      - '{{.FLY_BIN}} version'
+    status:
+      - test -x {{.FLY_BIN}}
+
+  setup:version:
+    desc: Show flyctl version
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} version'
+
+  setup:cli:
+    desc: Run fly command (use -- to pass args)
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} {{.CLI_ARGS}}'
+
+  # ===========================================================================
+  # Authentication (fly:auth:*)
+  # ===========================================================================
+
+  auth:login:
+    desc: Authenticate with Fly.io
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} auth login'
+
+  auth:whoami:
+    desc: Show current Fly.io user
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} auth whoami'
+
+  auth:token:
+    desc: Show current auth token
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} auth token'
+
+  # ===========================================================================
+  # Apps Management (fly:apps:*)
+  # ===========================================================================
+
+  apps:list:
+    desc: List all apps
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} apps list'
+
+  apps:create:
+    desc: Create a new app (set APP_NAME=name)
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} apps create {{.APP_NAME}}'
+    requires:
+      vars: [APP_NAME]
+
+  apps:destroy:
+    desc: Destroy an app (set FLY_APP=appname)
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} apps destroy {{.FLY_APP}}'
+    requires:
+      vars: [FLY_APP]
+
+  # ===========================================================================
+  # App Operations (fly:app:*) - require FLY_APP
+  # ===========================================================================
+
+  app:status:
+    desc: Show app status
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} status {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+
+  app:deploy:
+    desc: Deploy app
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} deploy {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+
+  app:logs:
+    desc: Tail app logs
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} logs {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+
+  app:ssh:
+    desc: SSH into app
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} ssh console {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+
+  app:open:
+    desc: Open app in browser
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} open {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+
+  # ===========================================================================
+  # Machines (fly:machines:*)
+  # ===========================================================================
+
+  machines:list:
+    desc: List machines
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} machines list {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+
+  machines:start:
+    desc: Start a machine (set MACHINE_ID=id)
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} machines start {{.MACHINE_ID}} {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+    requires:
+      vars: [MACHINE_ID]
+
+  machines:stop:
+    desc: Stop a machine (set MACHINE_ID=id)
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} machines stop {{.MACHINE_ID}} {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+    requires:
+      vars: [MACHINE_ID]
+
+  # ===========================================================================
+  # Secrets (fly:secrets:*)
+  # ===========================================================================
+
+  secrets:list:
+    desc: List secrets
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} secrets list {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+
+  secrets:set:
+    desc: Set a secret (use -- KEY=value)
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} secrets set {{.CLI_ARGS}} {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+
+  # ===========================================================================
+  # Volumes (fly:volumes:*)
+  # ===========================================================================
+
+  volumes:list:
+    desc: List volumes
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} volumes list {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+
+  # ===========================================================================
+  # Platform (fly:platform:*)
+  # ===========================================================================
+
+  platform:regions:
+    desc: List regions
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} platform regions'
+
+  platform:scale:
+    desc: Show current scale
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} scale show {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'

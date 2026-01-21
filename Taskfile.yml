@@ -7,6 +7,11 @@ vars:
   BIN_DIR: .bin
   BINARY_NAME: corrosion
 
+includes:
+  fly:
+    taskfile: ./Taskfile.fly.yml
+    optional: true
+
 tasks:
   default:
     desc: Show available tasks
@@ -564,3 +569,4 @@ tasks:
       - build
     cmds:
       - '{{.BIN_DIR}}/{{.BINARY_NAME}} --version'
+
