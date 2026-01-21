@@ -1,89 +1,42 @@
 # Corrosion Build Wrapper
 
-This repository provides build automation for [Corrosion](https://github.com/superfly/corrosion) - a gossip-based service discovery tool from Fly.io.
+Build automation for [Corrosion](https://github.com/superfly/corrosion) - a distributed SQLite replication system from Fly.io.
 
-https://fly.io/blog/corrosion/
+## Prerequisites
 
+- [Task](https://taskfile.dev)
+- [Rust](https://rustup.rs) (1.88+)
+- Docker (for cross-compilation)
 
-
-
-## What is Corrosion?
-
-Corrosion is a distributed SQLite replication system that:
-- Maintains a SQLite database on each node
-- Gossips local changes throughout the cluster
-- Uses [CR-SQLite](https://github.com/vlcn-io/cr-sqlite) for conflict resolution with CRDTs
-- Uses [Foca](https://github.com/caio/foca) to manage cluster membership using a SWIM protocol
-
-## Building
-
-### Prerequisites
-
-- [Task](https://taskfile.dev) - Task runner
-- [Rust](https://rustup.rs) - Rust toolchain (1.88+)
-- Git
-
-### Local Build (Current Platform)
+## Quick Start
 
 ```bash
-# Clone source and build
-task full
-
-# Or step by step:
-task clone
+# Build for current platform
 task build
-```
 
-The built binary will be in `bin/corrosion`.
+# Run locally
+task run
 
-### Build for Specific Platforms
-
-```bash
-# macOS ARM64 (Apple Silicon)
-task build:macos-arm64
-
-# macOS AMD64 (Intel) - requires cross-compilation setup
-task build:macos-amd64
-
-# Linux builds require cross-compilation tools or use GitHub Actions
-```
-
-### All Tasks
-
-```bash
+# List all tasks
 task --list
 ```
 
-## Cross-Platform Builds
+## Cross-Compilation (from macOS)
 
-Cross-platform builds are handled by GitHub Actions. See `.github/workflows/build.yml`.
+```bash
+# Install cross tool
+task rust:setup:cross
 
-Supported platforms:
-- `darwin-arm64` - macOS Apple Silicon
-- `darwin-amd64` - macOS Intel
-- `linux-amd64` - Linux x86_64
-- `linux-arm64` - Linux ARM64
+# Build for Linux
+task rust:build:linux:cross
+```
 
-## Upstream
+Outputs to `.bin/linux-amd64/` and `.bin/linux-arm64/`.
 
-This is a build wrapper around the upstream project:
-- Repository: https://github.com/superfly/corrosion
-- Documentation: https://superfly.github.io/corrosion/
+Note: Windows builds are unsupported (upstream uses Unix-only signal handling).
 
-## License
+## Links
 
-Corrosion is licensed under the Apache 2.0 license. See the upstream repository for details.
-
-## useful links
-
-### RTT
-
-https://rtt.fly.dev
-
-https://rtt.fly.dev/to/s3
-
-### s3 backed volumes
-
-https://community.fly.io/t/bottomless-s3-backed-volumes/15648
-
-
+- Upstream: https://github.com/superfly/corrosion
+- Docs: https://superfly.github.io/corrosion/
+- Blog: https://fly.io/blog/corrosion/
