@@ -2,6 +2,8 @@
 
 Build automation for [Corrosion](https://github.com/superfly/corrosion) - a distributed SQLite replication system from Fly.io.
 
+corrosion uses SQLite under the hood with CRDTs (cr-sqlite) for replication.
+
 ## Prerequisites
 
 - [Task](https://taskfile.dev)

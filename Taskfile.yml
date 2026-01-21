@@ -544,3 +544,50 @@ tasks:
       - rm -rf ./.data
       - rm -f ./corrosion.toml
       - echo "Cleaned all runtime data and config"
+
+  # ===========================================================================
+  # Deploy Fly.io (deploy:fly:*)
+  # ===========================================================================
+
+  deploy:fly:launch:
+    desc: Launch new Fly.io app (first time setup)
+    deps: [src:clone]
+    dir: deploy/fly
+    cmds:
+      - '{{.ROOT_DIR}}/{{.BIN_DIR}}/fly launch --copy-config --dockerfile Dockerfile --no-deploy'
+    vars:
+      ROOT_DIR:
+        sh: pwd
+
+  deploy:fly:deploy:
+    desc: Deploy to Fly.io
+    deps: [src:clone]
+    cmds:
+      - '{{.BIN_DIR}}/fly deploy --config deploy/fly/fly.toml --dockerfile deploy/fly/Dockerfile'
+
+  deploy:fly:status:
+    desc: Show Fly.io app status
+    cmds:
+      - '{{.BIN_DIR}}/fly status --config deploy/fly/fly.toml'
+
+  deploy:fly:logs:
+    desc: Tail Fly.io app logs
+    cmds:
+      - '{{.BIN_DIR}}/fly logs --config deploy/fly/fly.toml'
+
+  deploy:fly:ssh:
+    desc: SSH into Fly.io app
+    cmds:
+      - '{{.BIN_DIR}}/fly ssh console --config deploy/fly/fly.toml'
+
+  deploy:fly:scale:
+    desc: Scale to multiple nodes (set COUNT=n)
+    cmds:
+      - '{{.BIN_DIR}}/fly scale count {{.COUNT}} --config deploy/fly/fly.toml'
+    vars:
+      COUNT: '{{.COUNT | default "1"}}'
+
+  deploy:fly:destroy:
+    desc: Destroy Fly.io app (DANGEROUS)
+    cmds:
+      - '{{.BIN_DIR}}/fly apps destroy --config deploy/fly/fly.toml'

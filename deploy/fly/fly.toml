@@ -1,0 +1,74 @@
+# Fly.io deployment configuration for Corrosion
+# https://fly.io/docs/reference/configuration/
+#
+# ============================================================================
+# DEPLOYMENT
+# ============================================================================
+#
+# First time setup:
+#   task deploy:fly:launch
+#
+# Subsequent deploys:
+#   task deploy:fly:deploy
+#
+# ============================================================================
+# SCALING (Multi-Node Cluster)
+# ============================================================================
+#
+# Scale to 3 nodes:
+#   task deploy:fly:scale COUNT=3
+#
+# When you scale, corrosion automatically:
+#   - Discovers new nodes via DNS (${APP_NAME}.internal)
+#   - Syncs data using CRDT-based gossip protocol
+#   - Maintains eventual consistency across all nodes
+#
+# ============================================================================
+# ARCHITECTURE
+# ============================================================================
+#
+# Ports:
+#   - 8787/UDP (QUIC): Gossip protocol for cluster sync (internal only)
+#   - 8080/TCP: HTTP API for queries (internal only by default)
+#   - 9090/TCP: Prometheus metrics
+#
+# Network:
+#   - All nodes communicate via Fly's private IPv6 network
+#   - WireGuard encryption at network level (plaintext gossip is safe)
+#   - No public endpoints by default (access via fly proxy)
+#
+# Storage:
+#   - SQLite database on Fly volume for persistence
+#   - Each node maintains its own copy, synced via gossip
+#
+# ============================================================================
+
+app = "corrosion-demo"
+primary_region = "syd"
+
+[build]
+dockerfile = "Dockerfile"
+
+[env]
+RUST_BACKTRACE = "1"
+# RUST_LOG = "info,foca=debug"  # Uncomment for debug logging
+
+# Volume mount - REQUIRED for data persistence
+# Without this, database is lost on redeploy!
+[mounts]
+source = "corro_data"
+destination = "/var/lib/corrosion"
+
+# Prometheus metrics - scraped by Fly.io automatically
+[metrics]
+port = 9090
+path = "/"
+
+# API is internal-only by default (access via: fly proxy 8080)
+# To expose publicly (NOT recommended), uncomment below:
+# [[services]]
+#   internal_port = 8080
+#   protocol = "tcp"
+#   [[services.ports]]
+#     port = 80
+#     handlers = ["http"]

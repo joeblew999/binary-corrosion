@@ -1,0 +1,67 @@
+# Corrosion configuration for Fly.io deployment
+#
+# ============================================================================
+# DYNAMIC CONFIGURATION
+# ============================================================================
+#
+# The entrypoint.sh script injects these values at container startup:
+#   - gossip.addr: Set to [${FLY_PRIVATE_IP}]:8787
+#   - gossip.bootstrap: Set to ["${FLY_APP_NAME}.internal:8787"]
+#
+# This allows the same config to work on any Fly.io machine without
+# hardcoding IP addresses.
+#
+# ============================================================================
+# FLY.IO NETWORK REQUIREMENTS
+# ============================================================================
+#
+# max_mtu = 1372
+#   Fly's private network has MTU restrictions. Without this, QUIC packets
+#   may be fragmented causing gossip failures.
+#
+# disable_gso = true
+#   Generic Segmentation Offload not supported on Fly's network.
+#
+# plaintext = true
+#   Safe because Fly's private network uses WireGuard encryption.
+#   All inter-node traffic is already encrypted at the network level.
+#
+# addr = "[::]:8080" (IPv6)
+#   Fly's internal network is IPv6-only. IPv4 addresses won't work.
+#
+# ============================================================================
+
+[db]
+# SQLite database - persisted on Fly volume
+path = "/var/lib/corrosion/state.db"
+# Schema files define CRDT-enabled tables
+schema_paths = ["/etc/corrosion/schemas"]
+
+[gossip]
+# NOTE: addr and bootstrap are injected by entrypoint.sh at startup
+# using FLY_PRIVATE_IP and FLY_APP_NAME environment variables
+
+# Safe: Fly.io WireGuard network provides encryption
+plaintext = true
+
+# Required for Fly.io private network (prevents packet fragmentation)
+max_mtu = 1372
+
+# Required for Fly.io private network (GSO not supported)
+disable_gso = true
+
+[api]
+# HTTP API for queries - must use IPv6 for Fly.io
+addr = "[::]:8080"
+
+[admin]
+# Unix socket for admin commands (corrosion admin ...)
+path = "/app/admin.sock"
+
+[telemetry]
+# Prometheus metrics endpoint - scraped by Fly.io
+prometheus.addr = "0.0.0.0:9090"
+
+[log]
+# Disable colors for cleaner log output in fly logs
+colors = false
