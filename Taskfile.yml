@@ -40,6 +40,14 @@ tasks:
     status:
       - '! test -d {{.SRC_DIR}}'
 
+  src:patch:
+    desc: Apply patches for cross-platform compatibility
+    deps: [src:clone]
+    cmds:
+      - ./patches/apply-macos-fix.sh
+    status:
+      - grep -q "target.'cfg(target_os = \"linux\")'\.dependencies" {{.SRC_DIR}}/crates/corrosion/Cargo.toml
+
   # ===========================================================================
   # Rust Setup (rust:setup:*)
   # ===========================================================================
@@ -138,7 +146,7 @@ tasks:
   rust:build:macos:arm64:
     desc: Build for macOS ARM64 (Apple Silicon)
     dir: '{{.SRC_DIR}}'
-    deps: [src:clone]
+    deps: [src:patch]
     sources:
       - '{{.SRC_DIR}}/Cargo.toml'
       - '{{.SRC_DIR}}/Cargo.lock'
@@ -153,7 +161,7 @@ tasks:
   rust:build:macos:amd64:
     desc: Build for macOS AMD64 (Intel)
     dir: '{{.SRC_DIR}}'
-    deps: [src:clone]
+    deps: [src:patch]
     sources:
       - '{{.SRC_DIR}}/Cargo.toml'
       - '{{.SRC_DIR}}/Cargo.lock'

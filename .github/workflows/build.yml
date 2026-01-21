@@ -40,18 +40,6 @@ jobs:
       - name: Add target
         run: rustup target add ${{ matrix.target }}
 
-      - name: Clone and patch source
-        run: |
-          task src:clone
-          # Patch libsystemd for macOS (it's Linux-only)
-          cd .src/crates/corrosion
-          sed -i '' 's/^libsystemd = "0.7.0"$/# libsystemd moved to target-specific deps/' Cargo.toml
-          if ! grep -q "target.'cfg(target_os = \"linux\")'\.dependencies" Cargo.toml; then
-            echo '' >> Cargo.toml
-            echo '[target.'\''cfg(target_os = "linux")'\''.dependencies]' >> Cargo.toml
-            echo 'libsystemd = "0.7.0"' >> Cargo.toml
-          fi
-
       - name: Build
         run: task ${{ matrix.task }}
 
@@ -92,9 +80,6 @@ jobs:
 
       - name: Add target
         run: rustup target add ${{ matrix.target }}
-
-      - name: Clone source
-        run: task src:clone
 
       - name: Build
         env:
