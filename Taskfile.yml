@@ -2,7 +2,8 @@
 version: '3'
 
 vars:
-  SRC_REPO: https://github.com/superfly/corrosion.git
+  SRC_REPO: https://github.com/joeblew999/corrosion.git
+  SRC_UPSTREAM: https://github.com/superfly/corrosion.git
   SRC_DIR: .src
   BIN_DIR: .bin
   BINARY_NAME: corrosion
@@ -31,12 +32,22 @@ tasks:
       - test -d {{.SRC_DIR}}/.git
 
   src:update:
-    desc: Update the cloned source
+    desc: Update from fork
     dir: '{{.SRC_DIR}}'
     deps: [src:clone]
     cmds:
       - git fetch origin
       - git pull origin main
+
+  src:sync-upstream:
+    desc: Sync fork with upstream superfly/corrosion
+    dir: '{{.SRC_DIR}}'
+    deps: [src:clone]
+    cmds:
+      - git remote add upstream {{.SRC_UPSTREAM}} 2>/dev/null || true
+      - git fetch upstream
+      - git merge upstream/main --no-edit
+      - echo "Merged upstream. Review changes, then push to origin with 'git push origin main'"
 
   src:clean:
     desc: Remove cloned source directory
