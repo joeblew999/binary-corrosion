@@ -436,9 +436,32 @@ tasks:
       CONFIG_FILE: ./corrosion.toml
 
   run:config:init:
-    desc: Initialize config file from example
+    desc: Initialize config file with local paths
     cmds:
-      - cp {{.SRC_DIR}}/config.example.toml ./corrosion.toml
+      - mkdir -p ./schemas
+      - |
+        cat > ./corrosion.toml << 'EOF'
+        [db]
+        path = "./corrosion.db"
+        schema_paths = ["./schemas"]
+
+        [gossip]
+        addr = "[::]:8787"
+        bootstrap = []
+        plaintext = true
+
+        [api]
+        addr = "127.0.0.1:8080"
+
+        [admin]
+        path = "./admin.sock"
+
+        [telemetry]
+        prometheus.addr = "127.0.0.1:9090"
+
+        [log]
+        format = "json"
+        EOF
     status:
       - test -f ./corrosion.toml
 
@@ -454,13 +477,14 @@ tasks:
       - |
         cat > ./schemas/example.sql << 'EOF'
         -- Example schema for corrosion
+        -- Note: CRRs require non-nullable primary keys
         CREATE TABLE IF NOT EXISTS kv (
-          key TEXT PRIMARY KEY,
+          key TEXT NOT NULL PRIMARY KEY,
           value TEXT
         );
         EOF
     status:
-      - test -d ./schemas
+      - test -f ./schemas/example.sql
 
   run:help:
     desc: Show corrosion help
