@@ -97,31 +97,31 @@ tasks:
     desc: Show app status
     deps: [setup:install]
     cmds:
-      - '{{.FLY_BIN}} status {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+      - '{{.FLY_BIN}} status {{if .FLY_CONFIG}}--config {{.FLY_CONFIG}}{{end}} {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
 
   app:deploy:
     desc: Deploy app
     deps: [setup:install]
     cmds:
-      - '{{.FLY_BIN}} deploy {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+      - '{{.FLY_BIN}} deploy {{if .FLY_CONFIG}}--config {{.FLY_CONFIG}}{{end}} {{if .FLY_DOCKERFILE}}--dockerfile {{.FLY_DOCKERFILE}}{{end}} {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
 
   app:logs:
     desc: Tail app logs
     deps: [setup:install]
     cmds:
-      - '{{.FLY_BIN}} logs {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+      - '{{.FLY_BIN}} logs {{if .FLY_CONFIG}}--config {{.FLY_CONFIG}}{{end}} {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
 
   app:ssh:
     desc: SSH into app
     deps: [setup:install]
     cmds:
-      - '{{.FLY_BIN}} ssh console {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+      - '{{.FLY_BIN}} ssh console {{if .FLY_CONFIG}}--config {{.FLY_CONFIG}}{{end}} {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
 
   app:open:
     desc: Open app in browser
     deps: [setup:install]
     cmds:
-      - '{{.FLY_BIN}} open {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+      - '{{.FLY_BIN}} open {{if .FLY_CONFIG}}--config {{.FLY_CONFIG}}{{end}} {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
 
   # ===========================================================================
   # Machines (fly:machines:*)
@@ -173,7 +173,18 @@ tasks:
     desc: List volumes
     deps: [setup:install]
     cmds:
-      - '{{.FLY_BIN}} volumes list {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+      - '{{.FLY_BIN}} volumes list {{if .FLY_CONFIG}}--config {{.FLY_CONFIG}}{{end}} {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+
+  volumes:create:
+    desc: Create a volume (set VOL_NAME, VOL_SIZE, FLY_REGION)
+    deps: [setup:install]
+    vars:
+      VOL_SIZE: '{{.VOL_SIZE | default "1"}}'
+      FLY_REGION: '{{.FLY_REGION | default "syd"}}'
+    cmds:
+      - '{{.FLY_BIN}} volumes create {{.VOL_NAME}} -a {{.FLY_APP}} --region {{.FLY_REGION}} --size {{.VOL_SIZE}} --yes'
+    requires:
+      vars: [VOL_NAME, FLY_APP]
 
   # ===========================================================================
   # Platform (fly:platform:*)
@@ -189,4 +200,12 @@ tasks:
     desc: Show current scale
     deps: [setup:install]
     cmds:
-      - '{{.FLY_BIN}} scale show {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+      - '{{.FLY_BIN}} scale show {{if .FLY_CONFIG}}--config {{.FLY_CONFIG}}{{end}} {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+
+  platform:scale-count:
+    desc: Scale to COUNT machines (set COUNT=n)
+    deps: [setup:install]
+    cmds:
+      - '{{.FLY_BIN}} scale count {{.COUNT}} {{if .FLY_CONFIG}}--config {{.FLY_CONFIG}}{{end}} {{if .FLY_APP}}-a {{.FLY_APP}}{{end}}'
+    vars:
+      COUNT: '{{.COUNT | default "1"}}'

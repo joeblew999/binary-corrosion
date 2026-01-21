@@ -1,69 +1,25 @@
 # Corrosion Fly.io Deployment Dockerfile
 #
 # ============================================================================
-# BUILD OPTIONS
+# PRE-REQUISITES
 # ============================================================================
 #
-# Option 1: Build from source (default)
-#   - Uses the Rust source in .src/ (from task src:clone)
-#   - Slower but always up-to-date
-#   - Requires: task src:clone before docker build
+# Build the Linux binary before deploying:
+#   task rust:build:linux:cross:amd64
 #
-# Option 2: Use pre-built binary
-#   - Faster deployment using locally cross-compiled binary
-#   - Requires: task rust:build:linux:cross:amd64
-#   - To use: Comment out builder stage, uncomment COPY .bin/... line
+# This will create .bin/linux-amd64/corrosion
 #
 # ============================================================================
 # WHY THESE CHOICES
 # ============================================================================
 #
-# - rust:bookworm: Debian-based for compatibility with mold linker
-# - mold linker: 2-5x faster linking than default ld
-# - debian:bookworm-slim: Minimal runtime, ~80MB smaller than full
-# - sqlite3: Useful for debugging (fly ssh console -> sqlite3 /var/lib/...)
+# - debian:bookworm-slim: Minimal runtime, ~80MB
+# - sqlite3: Debugging (fly ssh console -> sqlite3 /var/lib/corrosion/state.db)
 # - Non-root user: Security best practice
-# - --mount=type=cache: Speeds up rebuilds by caching cargo/target
+# - Pre-built binary: Fast deploys, no remote compilation
 #
 # ============================================================================
 
-# ==============================================================================
-# Builder stage - compile from source
-# ==============================================================================
-FROM rust:bookworm AS builder
-
-# Build dependencies
-# - clang/llvm: Required by some Rust crates (ring, etc.)
-# - gcc-x86-64-linux-gnu: Cross-compilation support
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    gcc-x86-64-linux-gnu \
-    clang \
-    llvm \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install mold linker - significantly faster than ld
-ENV MOLD_VERSION=2.4.0
-RUN set -eux; \
-    curl --fail --location "https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-x86_64-linux.tar.gz" --output /tmp/mold.tar.gz; \
-    tar --directory "/usr/local" -xzvf "/tmp/mold.tar.gz" --strip-components 1; \
-    rm /tmp/mold.tar.gz; \
-    mold --version
-
-WORKDIR /usr/src/app
-
-# Copy source - assumes .src/ exists from: task src:clone
-COPY .src/ .
-
-# Build release binary with cargo caching
-# Cache mounts speed up subsequent builds significantly
-RUN --mount=type=cache,target=/usr/local/cargo,from=rust:bookworm,source=/usr/local/cargo \
-    --mount=type=cache,target=target \
-    cargo build --release && mv target/release/corrosion ./
-
-# ==============================================================================
-# Runtime stage - minimal production image
-# ==============================================================================
 FROM debian:bookworm-slim
 
 # Runtime dependencies only
@@ -74,13 +30,10 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy binary from builder stage
-COPY --from=builder /usr/src/app/corrosion /usr/local/bin/corrosion
-
-# Alternative: Use pre-built binary from local cross-compilation
-# Uncomment this and comment out the builder stage above for faster deploys
+# Copy pre-built binary from local cross-compilation
 # Requires: task rust:build:linux:cross:amd64
-# COPY .bin/linux-amd64/corrosion /usr/local/bin/corrosion
+COPY .bin/linux-amd64/corrosion /usr/local/bin/corrosion
+RUN chmod +x /usr/local/bin/corrosion
 
 # Create non-root user for security
 RUN useradd -ms /bin/bash corrosion

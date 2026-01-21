@@ -257,12 +257,6 @@ tasks:
     deps:
       - src:clone
       - rust:setup:cross
-    sources:
-      - '{{.SRC_DIR}}/Cargo.toml'
-      - '{{.SRC_DIR}}/Cargo.lock'
-      - '{{.SRC_DIR}}/crates/**/*.rs'
-    generates:
-      - '{{.BIN_DIR}}/linux-amd64/{{.BINARY_NAME}}'
     env:
       RUSTFLAGS: "--cfg tokio_unstable"
     cmds:
@@ -271,6 +265,8 @@ tasks:
       - cross build --release --target x86_64-unknown-linux-gnu
       - mkdir -p ../{{.BIN_DIR}}/linux-amd64
       - cp target/x86_64-unknown-linux-gnu/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-amd64/
+    status:
+      - test -f ../{{.BIN_DIR}}/linux-amd64/{{.BINARY_NAME}}
 
   rust:build:linux:cross:arm64:
     desc: Build for Linux ARM64 using cross
@@ -548,46 +544,76 @@ tasks:
   # ===========================================================================
   # Deploy Fly.io (deploy:fly:*)
   # ===========================================================================
+  #
+  # These tasks wrap fly:* tasks with our deploy config.
+  # Uses --config to point fly at deploy/fly/fly.toml
+  #
+  # First time setup:
+  #   task deploy:fly:setup
+  #
+  # Deploy:
+  #   task deploy:fly:deploy
 
-  deploy:fly:launch:
-    desc: Launch new Fly.io app (first time setup)
-    deps: [src:clone]
-    dir: deploy/fly
-    cmds:
-      - '{{.ROOT_DIR}}/{{.BIN_DIR}}/fly launch --copy-config --dockerfile Dockerfile --no-deploy'
+  deploy:fly:setup:
+    desc: First time Fly.io setup (create app + volume, idempotent)
     vars:
-      ROOT_DIR:
-        sh: pwd
+      FLY_APP: '{{.FLY_APP | default "corrosion-demo"}}'
+      FLY_REGION: '{{.FLY_REGION | default "syd"}}'
+    cmds:
+      # Create app (idempotent - ignores error if exists)
+      - task: fly:apps:create
+        vars:
+          APP_NAME: '{{.FLY_APP}}'
+        ignore_error: true
+      # Create volume if not exists (check with volumes:list first)
+      - |
+        if ! task fly:volumes:list FLY_APP={{.FLY_APP}} 2>/dev/null | grep -q corro_data; then
+          task fly:volumes:create VOL_NAME=corro_data FLY_APP={{.FLY_APP}} FLY_REGION={{.FLY_REGION}}
+        fi
 
   deploy:fly:deploy:
-    desc: Deploy to Fly.io
-    deps: [src:clone]
+    desc: Deploy to Fly.io (run rust:build:linux:cross:amd64 first if binary doesn't exist)
+    preconditions:
+      - sh: test -f {{.BIN_DIR}}/linux-amd64/{{.BINARY_NAME}}
+        msg: "Linux AMD64 binary not found. Run: task rust:build:linux:cross:amd64"
     cmds:
-      - '{{.BIN_DIR}}/fly deploy --config deploy/fly/fly.toml --dockerfile deploy/fly/Dockerfile'
+      - task: fly:app:deploy
+        vars:
+          FLY_CONFIG: deploy/fly/fly.toml
+          FLY_DOCKERFILE: deploy/fly/Dockerfile
 
   deploy:fly:status:
     desc: Show Fly.io app status
     cmds:
-      - '{{.BIN_DIR}}/fly status --config deploy/fly/fly.toml'
+      - task: fly:app:status
+        vars:
+          FLY_CONFIG: deploy/fly/fly.toml
 
   deploy:fly:logs:
     desc: Tail Fly.io app logs
     cmds:
-      - '{{.BIN_DIR}}/fly logs --config deploy/fly/fly.toml'
+      - task: fly:app:logs
+        vars:
+          FLY_CONFIG: deploy/fly/fly.toml
 
   deploy:fly:ssh:
     desc: SSH into Fly.io app
     cmds:
-      - '{{.BIN_DIR}}/fly ssh console --config deploy/fly/fly.toml'
+      - task: fly:app:ssh
+        vars:
+          FLY_CONFIG: deploy/fly/fly.toml
 
   deploy:fly:scale:
     desc: Scale to multiple nodes (set COUNT=n)
     cmds:
-      - '{{.BIN_DIR}}/fly scale count {{.COUNT}} --config deploy/fly/fly.toml'
-    vars:
-      COUNT: '{{.COUNT | default "1"}}'
+      - task: fly:platform:scale-count
+        vars:
+          FLY_CONFIG: deploy/fly/fly.toml
+          COUNT: '{{.COUNT | default "1"}}'
 
   deploy:fly:destroy:
     desc: Destroy Fly.io app (DANGEROUS)
     cmds:
-      - '{{.BIN_DIR}}/fly apps destroy --config deploy/fly/fly.toml'
+      - task: fly:apps:destroy
+        vars:
+          FLY_APP: '{{.FLY_APP | default "corrosion-demo"}}'

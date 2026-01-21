@@ -1,0 +1,38 @@
+# Only include what's needed for deploy:
+# - .bin/linux-amd64/corrosion (the binary)
+# - deploy/fly/* (config files)
+#
+# Everything else is excluded
+
+# Source code (not needed - we use pre-built binary)
+.src/
+
+# Other binaries
+.bin/corrosion
+.bin/corrosion-debug
+.bin/fly
+.bin/linux-arm64/
+
+# Runtime data
+.data/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Documentation
+*.md
+docs/
+
+# CI/CD
+.github/
+
+# Task files
+Taskfile*.yml
+
+# Cargo config
+.cargo/
