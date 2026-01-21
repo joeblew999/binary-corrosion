@@ -1,0 +1,139 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-macos:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: darwin-arm64
+          - os: macos-13
+            target: x86_64-apple-darwin
+            name: darwin-amd64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout wrapper repo
+        uses: actions/checkout@v4
+
+      - name: Clone upstream source
+        run: |
+          rm -rf .src
+          git clone https://github.com/superfly/corrosion.git .src
+
+      - name: Patch libsystemd dependency for macOS
+        run: |
+          cd .src/crates/corrosion
+          # Make libsystemd conditional on Linux only
+          sed -i '' 's/^libsystemd = "0.7.0"$/# libsystemd moved to target-specific deps/' Cargo.toml
+          # Add target-specific dependency if not already present
+          if ! grep -q "target.'cfg(target_os = \"linux\")'\.dependencies" Cargo.toml; then
+            echo '' >> Cargo.toml
+            echo '[target.'\''cfg(target_os = "linux")'\''.dependencies]' >> Cargo.toml
+            echo 'libsystemd = "0.7.0"' >> Cargo.toml
+          fi
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: stable
+
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build
+        run: |
+          cd .src
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare artifact
+        run: |
+          mkdir -p dist/${{ matrix.name }}
+          cp .src/target/${{ matrix.target }}/release/corrosion dist/${{ matrix.name }}/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: corrosion-${{ matrix.name }}
+          path: dist/${{ matrix.name }}/
+
+  build-linux:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            name: linux-amd64
+          - target: aarch64-unknown-linux-gnu
+            name: linux-arm64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout wrapper repo
+        uses: actions/checkout@v4
+
+      - name: Clone upstream source
+        run: |
+          rm -rf .src
+          git clone https://github.com/superfly/corrosion.git .src
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: stable
+
+      - name: Install cross-compilation tools
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build
+        run: |
+          cd .src
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+          fi
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare artifact
+        run: |
+          mkdir -p dist/${{ matrix.name }}
+          cp .src/target/${{ matrix.target }}/release/corrosion dist/${{ matrix.name }}/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: corrosion-${{ matrix.name }}
+          path: dist/${{ matrix.name }}/
+
+  release:
+    needs: [build-macos, build-linux]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: List artifacts
+        run: ls -laR dist/
+
+      - name: Create checksums
+        run: |
+          cd dist
+          for dir in */; do
+            (cd "$dir" && sha256sum * > checksums.txt)
+          done

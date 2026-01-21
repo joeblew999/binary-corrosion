@@ -1,0 +1,20 @@
+# Source directory (cloned from upstream)
+.src/
+
+# Build outputs
+bin/
+dist/
+target/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Rust
+*.rs.bk

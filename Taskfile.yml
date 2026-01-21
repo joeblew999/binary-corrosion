@@ -1,0 +1,264 @@
+# https://taskfile.dev
+version: '3'
+
+vars:
+  REPO_URL: https://github.com/superfly/corrosion.git
+  SRC_DIR: .src
+  BIN_DIR: bin
+  BINARY_NAME: corrosion
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  # === Setup Tasks ===
+
+  setup:
+    desc: Install required Rust toolchain and targets
+    cmds:
+      - rustup show
+      - task: setup:targets
+
+  setup:targets:
+    desc: Install cross-compilation targets
+    ignore_error: true
+    cmds:
+      - rustup target add x86_64-apple-darwin
+      - rustup target add aarch64-apple-darwin
+      - rustup target add x86_64-unknown-linux-gnu
+      - rustup target add aarch64-unknown-linux-gnu
+      - rustup target add x86_64-unknown-linux-musl
+      - rustup target add aarch64-unknown-linux-musl
+      - rustup target add x86_64-pc-windows-msvc
+      - rustup target add x86_64-pc-windows-gnu
+      - echo "Installed targets:"
+      - rustup target list --installed
+
+  # === Clone Tasks ===
+
+  clone:
+    desc: Clone corrosion source to .src directory
+    cmds:
+      - rm -rf {{.SRC_DIR}}
+      - git clone {{.REPO_URL}} {{.SRC_DIR}}
+    status:
+      - test -d {{.SRC_DIR}}/.git
+
+  clone:update:
+    desc: Update the cloned source
+    dir: '{{.SRC_DIR}}'
+    cmds:
+      - git fetch origin
+      - git pull origin main
+    preconditions:
+      - test -d {{.SRC_DIR}}/.git
+
+  # === Build Tasks ===
+
+  build:
+    desc: Build for current platform (release)
+    dir: '{{.SRC_DIR}}'
+    cmds:
+      - cargo build --release
+      - mkdir -p ../{{.BIN_DIR}}
+      - cp target/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/
+
+  build:dev:
+    desc: Build for current platform (debug)
+    dir: '{{.SRC_DIR}}'
+    cmds:
+      - cargo build
+      - mkdir -p ../{{.BIN_DIR}}
+      - cp target/debug/{{.BINARY_NAME}} ../{{.BIN_DIR}}/{{.BINARY_NAME}}-debug
+
+  # === macOS Builds ===
+
+  build:macos:
+    desc: Build for both macOS architectures
+    cmds:
+      - task: build:macos-arm64
+      - task: build:macos-amd64
+
+  build:macos-arm64:
+    desc: Build for macOS ARM64 (Apple Silicon)
+    dir: '{{.SRC_DIR}}'
+    cmds:
+      - cargo build --release --target aarch64-apple-darwin
+      - mkdir -p ../{{.BIN_DIR}}/darwin-arm64
+      - cp target/aarch64-apple-darwin/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/darwin-arm64/
+
+  build:macos-amd64:
+    desc: Build for macOS AMD64 (Intel)
+    dir: '{{.SRC_DIR}}'
+    cmds:
+      - cargo build --release --target x86_64-apple-darwin
+      - mkdir -p ../{{.BIN_DIR}}/darwin-amd64
+      - cp target/x86_64-apple-darwin/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/darwin-amd64/
+
+  build:macos-universal:
+    desc: Build universal macOS binary (ARM64 + AMD64)
+    deps:
+      - build:macos-arm64
+      - build:macos-amd64
+    cmds:
+      - mkdir -p {{.BIN_DIR}}/darwin-universal
+      - lipo -create -output {{.BIN_DIR}}/darwin-universal/{{.BINARY_NAME}} {{.BIN_DIR}}/darwin-arm64/{{.BINARY_NAME}} {{.BIN_DIR}}/darwin-amd64/{{.BINARY_NAME}}
+
+  # === Linux Builds (requires cross-compilation setup) ===
+
+  build:linux:
+    desc: Build for Linux (requires cross or Docker)
+    cmds:
+      - task: build:linux-amd64
+      - task: build:linux-arm64
+
+  build:linux-amd64:
+    desc: Build for Linux AMD64
+    dir: '{{.SRC_DIR}}'
+    ignore_error: true
+    cmds:
+      - echo "Building for Linux AMD64 (requires cross-compilation toolchain)..."
+      - cargo build --release --target x86_64-unknown-linux-gnu
+      - mkdir -p ../{{.BIN_DIR}}/linux-amd64
+      - cp target/x86_64-unknown-linux-gnu/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-amd64/
+
+  build:linux-arm64:
+    desc: Build for Linux ARM64
+    dir: '{{.SRC_DIR}}'
+    ignore_error: true
+    cmds:
+      - echo "Building for Linux ARM64 (requires cross-compilation toolchain)..."
+      - cargo build --release --target aarch64-unknown-linux-gnu
+      - mkdir -p ../{{.BIN_DIR}}/linux-arm64
+      - cp target/aarch64-unknown-linux-gnu/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-arm64/
+
+  build:linux-musl:
+    desc: Build for Linux with musl (static binary)
+    dir: '{{.SRC_DIR}}'
+    ignore_error: true
+    cmds:
+      - echo "Building static Linux binary with musl..."
+      - cargo build --release --target x86_64-unknown-linux-musl
+      - mkdir -p ../{{.BIN_DIR}}/linux-amd64-musl
+      - cp target/x86_64-unknown-linux-musl/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-amd64-musl/
+
+  # === Cross-compilation with 'cross' tool ===
+
+  build:cross:linux-amd64:
+    desc: Build for Linux AMD64 using cross
+    dir: '{{.SRC_DIR}}'
+    cmds:
+      - cross build --release --target x86_64-unknown-linux-gnu
+      - mkdir -p ../{{.BIN_DIR}}/linux-amd64
+      - cp target/x86_64-unknown-linux-gnu/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-amd64/
+
+  build:cross:linux-arm64:
+    desc: Build for Linux ARM64 using cross
+    dir: '{{.SRC_DIR}}'
+    cmds:
+      - cross build --release --target aarch64-unknown-linux-gnu
+      - mkdir -p ../{{.BIN_DIR}}/linux-arm64
+      - cp target/aarch64-unknown-linux-gnu/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-arm64/
+
+  build:cross:linux:
+    desc: Build for all Linux targets using cross
+    cmds:
+      - task: build:cross:linux-amd64
+      - task: build:cross:linux-arm64
+
+  # === Windows Builds ===
+
+  build:windows-amd64:
+    desc: Build for Windows AMD64 (requires cross-compilation setup)
+    dir: '{{.SRC_DIR}}'
+    ignore_error: true
+    cmds:
+      - echo "Building for Windows AMD64 (requires mingw-w64 toolchain)..."
+      - cargo build --release --target x86_64-pc-windows-gnu
+      - mkdir -p ../{{.BIN_DIR}}/windows-amd64
+      - cp target/x86_64-pc-windows-gnu/release/{{.BINARY_NAME}}.exe ../{{.BIN_DIR}}/windows-amd64/
+
+  # === All Platforms ===
+
+  build:all:
+    desc: Build for all platforms (native only, cross-compile may fail)
+    cmds:
+      - task: build:macos
+      - task: build:linux
+      - task: build:windows-amd64
+
+  build:all:cross:
+    desc: Build for all platforms using cross tool
+    cmds:
+      - task: build:macos
+      - task: build:cross:linux
+
+  # === Utility Tasks ===
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf {{.BIN_DIR}}
+      - cmd: cargo clean
+        dir: '{{.SRC_DIR}}'
+        ignore_error: true
+
+  clean:all:
+    desc: Clean everything including source
+    cmds:
+      - rm -rf {{.BIN_DIR}}
+      - rm -rf {{.SRC_DIR}}
+
+  test:
+    desc: Run tests
+    dir: '{{.SRC_DIR}}'
+    cmds:
+      - cargo test
+
+  check:
+    desc: Check code compiles without building
+    dir: '{{.SRC_DIR}}'
+    cmds:
+      - cargo check
+
+  fmt:
+    desc: Format code
+    dir: '{{.SRC_DIR}}'
+    cmds:
+      - cargo fmt
+
+  clippy:
+    desc: Run clippy linter
+    dir: '{{.SRC_DIR}}'
+    cmds:
+      - cargo clippy
+
+  # === Install cross tool ===
+
+  install:cross:
+    desc: Install the 'cross' tool for cross-compilation
+    cmds:
+      - cargo install cross --git https://github.com/cross-rs/cross
+
+  # === Full workflow ===
+
+  full:
+    desc: Clone and build for current platform
+    cmds:
+      - task: clone
+      - task: build
+
+  full:macos:
+    desc: Clone and build for macOS (both architectures)
+    cmds:
+      - task: clone
+      - task: build:macos
+
+  full:all:
+    desc: Clone, setup, and attempt to build for all platforms
+    cmds:
+      - task: clone
+      - task: setup:targets
+      - task: build:all
