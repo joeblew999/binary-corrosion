@@ -17,7 +17,7 @@ jobs:
           - os: macos-latest
             name: darwin-arm64
             task: rust:build:macos:arm64
-          - os: macos-13
+          - os: macos-15-intel
             name: darwin-amd64
             task: rust:build:macos:amd64
     runs-on: ${{ matrix.os }}
