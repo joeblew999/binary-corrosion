@@ -9,6 +9,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUSTFLAGS: "--cfg tokio_unstable"
 
 jobs:
   build-macos:
@@ -18,11 +19,11 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             name: darwin-arm64
-            task: build:macos-arm64
+            task: rust:build:macos:arm64
           - os: macos-13
             target: x86_64-apple-darwin
             name: darwin-amd64
-            task: build:macos-amd64
+            task: rust:build:macos:amd64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -41,8 +42,8 @@ jobs:
 
       - name: Clone and patch source
         run: |
-          task clone
-          # Patch libsystemd for macOS
+          task src:clone
+          # Patch libsystemd for macOS (it's Linux-only)
           cd .src/crates/corrosion
           sed -i '' 's/^libsystemd = "0.7.0"$/# libsystemd moved to target-specific deps/' Cargo.toml
           if ! grep -q "target.'cfg(target_os = \"linux\")'\.dependencies" Cargo.toml; then
@@ -58,7 +59,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: corrosion-${{ matrix.name }}
-          path: bin/${{ matrix.name }}/
+          path: .bin/${{ matrix.name }}/
 
   build-linux:
     strategy:
@@ -66,10 +67,10 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             name: linux-amd64
-            task: build:linux-amd64
+            task: rust:build:linux:amd64
           - target: aarch64-unknown-linux-gnu
             name: linux-arm64
-            task: build:linux-arm64
+            task: rust:build:linux:arm64
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -93,20 +94,18 @@ jobs:
         run: rustup target add ${{ matrix.target }}
 
       - name: Clone source
-        run: task clone
+        run: task src:clone
 
       - name: Build
-        run: |
-          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-          fi
-          task ${{ matrix.task }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'aarch64-linux-gnu-gcc' || '' }}
+        run: task ${{ matrix.task }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: corrosion-${{ matrix.name }}
-          path: bin/${{ matrix.name }}/
+          path: .bin/${{ matrix.name }}/
 
   release:
     needs: [build-macos, build-linux]
@@ -125,5 +124,5 @@ jobs:
         run: |
           cd dist
           for dir in */; do
-            (cd "$dir" && sha256sum * > checksums.txt)
+            (cd "$dir" && sha256sum * > checksums.txt 2>/dev/null || true)
           done
