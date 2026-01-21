@@ -15,11 +15,9 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            target: aarch64-apple-darwin
             name: darwin-arm64
             task: rust:build:macos:arm64
           - os: macos-13
-            target: x86_64-apple-darwin
             name: darwin-amd64
             task: rust:build:macos:amd64
     runs-on: ${{ matrix.os }}
@@ -35,21 +33,17 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Add target
-        run: rustup target add ${{ matrix.target }}
-
       - name: Cache cargo
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             .src/target/
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-v2-${{ hashFiles('.src/**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ matrix.name }}-cargo-v3-${{ hashFiles('.src/**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.target }}-cargo-v2-
+            ${{ runner.os }}-${{ matrix.name }}-cargo-v3-
 
       - name: Build
         run: task ${{ matrix.task }}
@@ -65,11 +59,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
-            name: linux-amd64
+          - name: linux-amd64
             task: rust:build:linux:amd64
-          - target: aarch64-unknown-linux-gnu
-            name: linux-arm64
+          - name: linux-arm64
             task: rust:build:linux:arm64
     runs-on: ubuntu-latest
     steps:
@@ -85,30 +77,26 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install cross-compilation tools
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        if: matrix.name == 'linux-arm64'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
-
-      - name: Add target
-        run: rustup target add ${{ matrix.target }}
 
       - name: Cache cargo
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             .src/target/
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-v2-${{ hashFiles('.src/**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ matrix.name }}-cargo-v3-${{ hashFiles('.src/**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.target }}-cargo-v2-
+            ${{ runner.os }}-${{ matrix.name }}-cargo-v3-
 
       - name: Build
         env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'aarch64-linux-gnu-gcc' || '' }}
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.name == 'linux-arm64' && 'aarch64-linux-gnu-gcc' || '' }}
         run: task ${{ matrix.task }}
 
       - name: Upload artifact
@@ -122,11 +110,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: x86_64-pc-windows-msvc
-            name: windows-amd64
+          - name: windows-amd64
             task: rust:build:windows:native
-          - target: aarch64-pc-windows-msvc
-            name: windows-arm64
+          - name: windows-arm64
             task: rust:build:windows:arm64
     runs-on: windows-latest
     steps:
@@ -141,14 +127,6 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Add target
-        run: rustup target add ${{ matrix.target }}
-
-      - name: Verify target
-        run: |
-          rustup target list --installed
-          rustup show
-
       - name: Cache cargo
         uses: actions/cache@v4
         with:
@@ -157,9 +135,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             .src/target/
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-v2-${{ hashFiles('.src/**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ matrix.name }}-cargo-v3-${{ hashFiles('.src/**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.target }}-cargo-v2-
+            ${{ runner.os }}-${{ matrix.name }}-cargo-v3-
 
       - name: Build
         run: task ${{ matrix.task }}

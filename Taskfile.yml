@@ -163,6 +163,7 @@ tasks:
     generates:
       - '{{.BIN_DIR}}/darwin-arm64/{{.BINARY_NAME}}'
     cmds:
+      - rustup target add aarch64-apple-darwin
       - cargo build --release --target aarch64-apple-darwin
       - mkdir -p ../{{.BIN_DIR}}/darwin-arm64
       - cp target/aarch64-apple-darwin/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/darwin-arm64/
@@ -178,6 +179,7 @@ tasks:
     generates:
       - '{{.BIN_DIR}}/darwin-amd64/{{.BINARY_NAME}}'
     cmds:
+      - rustup target add x86_64-apple-darwin
       - cargo build --release --target x86_64-apple-darwin
       - mkdir -p ../{{.BIN_DIR}}/darwin-amd64
       - cp target/x86_64-apple-darwin/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/darwin-amd64/
@@ -218,6 +220,7 @@ tasks:
       - '{{.BIN_DIR}}/linux-amd64/{{.BINARY_NAME}}'
     ignore_error: true
     cmds:
+      - rustup target add x86_64-unknown-linux-gnu
       - cargo build --release --target x86_64-unknown-linux-gnu
       - mkdir -p ../{{.BIN_DIR}}/linux-amd64
       - cp target/x86_64-unknown-linux-gnu/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-amd64/
@@ -234,6 +237,7 @@ tasks:
       - '{{.BIN_DIR}}/linux-arm64/{{.BINARY_NAME}}'
     ignore_error: true
     cmds:
+      - rustup target add aarch64-unknown-linux-gnu
       - cargo build --release --target aarch64-unknown-linux-gnu
       - mkdir -p ../{{.BIN_DIR}}/linux-arm64
       - cp target/aarch64-unknown-linux-gnu/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-arm64/
@@ -250,6 +254,7 @@ tasks:
       - '{{.BIN_DIR}}/linux-amd64-musl/{{.BINARY_NAME}}'
     ignore_error: true
     cmds:
+      - rustup target add x86_64-unknown-linux-musl
       - cargo build --release --target x86_64-unknown-linux-musl
       - mkdir -p ../{{.BIN_DIR}}/linux-amd64-musl
       - cp target/x86_64-unknown-linux-musl/release/{{.BINARY_NAME}} ../{{.BIN_DIR}}/linux-amd64-musl/
@@ -317,6 +322,7 @@ tasks:
     generates:
       - '{{.BIN_DIR}}/windows-amd64/{{.BINARY_NAME}}.exe'
     cmds:
+      - rustup target add {{.WIN_TARGET}}
       - cargo build --release --target {{.WIN_TARGET}}
       - cmd: mkdir -p ../{{.BIN_DIR}}/windows-amd64
         platforms: [linux, darwin]
@@ -338,6 +344,7 @@ tasks:
     generates:
       - '{{.BIN_DIR}}/windows-arm64/{{.BINARY_NAME}}.exe'
     cmds:
+      - rustup target add aarch64-pc-windows-msvc
       - cargo build --release --target aarch64-pc-windows-msvc
       - cmd: mkdir -p ../{{.BIN_DIR}}/windows-arm64
         platforms: [linux, darwin]
