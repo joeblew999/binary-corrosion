@@ -486,6 +486,55 @@ tasks:
     status:
       - test -f ./.data/schemas/example.sql
 
+  run:start:
+    desc: Start corrosion in the background
+    deps:
+      - build
+    cmds:
+      - task: run:config:init
+      - cmd: bash -c '{{.BIN_DIR}}/{{.BINARY_NAME}} agent -c ./corrosion.toml >> ./.data/corrosion.log 2>&1 & echo $! > ./.data/corrosion.pid'
+      - sleep 1
+      - cmd: bash -c 'echo "Started corrosion with PID $(cat ./.data/corrosion.pid)"'
+    status:
+      - test -f ./.data/corrosion.pid && kill -0 $(cat ./.data/corrosion.pid) 2>/dev/null
+
+  run:stop:
+    desc: Stop corrosion background process
+    cmds:
+      - |
+        if [ -f ./.data/corrosion.pid ]; then
+          PID=$(cat ./.data/corrosion.pid)
+          if kill -0 $PID 2>/dev/null; then
+            kill $PID
+            echo "Stopped corrosion (PID $PID)"
+          else
+            echo "Process not running"
+          fi
+          rm -f ./.data/corrosion.pid
+        else
+          echo "No PID file found"
+        fi
+
+  run:status:
+    desc: Check if corrosion is running
+    cmds:
+      - |
+        if [ -f ./.data/corrosion.pid ]; then
+          PID=$(cat ./.data/corrosion.pid)
+          if kill -0 $PID 2>/dev/null; then
+            echo "Corrosion is running (PID $PID)"
+          else
+            echo "Corrosion is not running (stale PID file)"
+          fi
+        else
+          echo "Corrosion is not running"
+        fi
+
+  run:logs:
+    desc: Tail corrosion logs
+    cmds:
+      - tail -f ./.data/corrosion.log
+
   run:help:
     desc: Show corrosion help
     deps:
