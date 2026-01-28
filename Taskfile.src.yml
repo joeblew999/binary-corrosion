@@ -103,7 +103,7 @@ tasks:
       - git merge {{.UPSTREAM_REMOTE}}/main --no-edit
       - echo ""
       - echo "Merged upstream/main. Review changes, resolve conflicts if any."
-      - echo "Then: task src:fork:push"
+      - echo "Then run - task src:fork:push"
 
   upstream:rebase:
     desc: Rebase current branch onto upstream main
@@ -113,7 +113,7 @@ tasks:
       - git fetch {{.UPSTREAM_REMOTE}}
       - git rebase {{.UPSTREAM_REMOTE}}/main
       - echo ""
-      - echo "Rebased onto upstream/main. Review, then force push:"
+      - echo "Rebased onto upstream/main. Review, then force push with"
       - echo "  git push --force-with-lease {{.FORK_REMOTE}}"
 
   # ===========================================================================
@@ -136,20 +136,16 @@ tasks:
     desc: Create a new feature branch (set NAME=branch-name)
     dir: '{{.SRC_DIR}}'
     deps: [clone]
-    requires:
-      vars: [NAME]
     cmds:
-      - git checkout -b {{.NAME}}
-      - echo "Created branch: {{.NAME}}"
+      - git checkout -b '{{.NAME}}'
+      - echo "Created branch {{.NAME}}"
 
   branch:checkout:
     desc: Checkout a branch (set NAME=branch-name)
     dir: '{{.SRC_DIR}}'
     deps: [clone]
-    requires:
-      vars: [NAME]
     cmds:
-      - git checkout {{.NAME}}
+      - git checkout '{{.NAME}}'
 
   # ===========================================================================
   # Patch Management

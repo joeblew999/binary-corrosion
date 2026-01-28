@@ -23,43 +23,6 @@ includes:
 
 tasks:
   # ===========================================================================
-  # Source Management (src:*)
-  # ===========================================================================
-
-  src:clone:
-    desc: Clone corrosion source to .src directory
-    cmds:
-      - rm -rf {{.SRC_DIR}}
-      - git clone {{.SRC_REPO}} {{.SRC_DIR}}
-    status:
-      - test -d {{.SRC_DIR}}/.git
-
-  src:update:
-    desc: Update from fork
-    dir: '{{.SRC_DIR}}'
-    deps: [src:clone]
-    cmds:
-      - git fetch origin
-      - git pull origin main
-
-  src:sync-upstream:
-    desc: Sync fork with upstream superfly/corrosion
-    dir: '{{.SRC_DIR}}'
-    deps: [src:clone]
-    cmds:
-      - git remote add upstream {{.SRC_UPSTREAM}} 2>/dev/null || true
-      - git fetch upstream
-      - git merge upstream/main --no-edit
-      - echo "Merged upstream. Review changes, then push to origin with 'git push origin main'"
-
-  src:clean:
-    desc: Remove cloned source directory
-    cmds:
-      - rm -rf {{.SRC_DIR}}
-    status:
-      - '! test -d {{.SRC_DIR}}'
-
-  # ===========================================================================
   # Rust Setup (rust:setup:*)
   # ===========================================================================
 
@@ -670,3 +633,58 @@ tasks:
       - task: fly:apps:destroy
         vars:
           FLY_APP: '{{.FLY_APP | default "corrosion-demo"}}'
+
+  # ===========================================================================
+  # Release (release:*)
+  # ===========================================================================
+
+  release:build:all:
+    desc: Build all platform binaries for release
+    cmds:
+      - task: rust:build:macos:arm64
+      - task: rust:build:macos:amd64
+      - task: rust:build:linux:cross:amd64
+      - task: rust:build:linux:cross:arm64
+      # Windows disabled - blocked by Unix socket usage in corro-admin
+      # - task: rust:build:windows:cross
+
+  release:package:
+    desc: Create release tarballs and checksums
+    dir: '{{.BIN_DIR}}'
+    cmds:
+      - rm -f *.tar.gz checksums.txt
+      - |
+        for dir in darwin-arm64 darwin-amd64 linux-amd64 linux-arm64; do
+          if [ -d "$dir" ]; then
+            tar -czvf "corrosion-${dir}.tar.gz" -C "$dir" .
+            shasum -a 256 "corrosion-${dir}.tar.gz" >> checksums.txt
+          fi
+        done
+      - cat checksums.txt
+
+  release:upload:
+    desc: Upload release to GitHub (set VERSION=v1.0.0)
+    dir: '{{.BIN_DIR}}'
+    vars:
+      VERSION: '{{.VERSION | default "latest"}}'
+    cmds:
+      - |
+        if [ "{{.VERSION}}" = "latest" ]; then
+          gh release delete latest --yes 2>/dev/null || true
+          git push origin :refs/tags/latest 2>/dev/null || true
+        fi
+      - gh release create {{.VERSION}} --title "{{.VERSION}}" --generate-notes *.tar.gz checksums.txt
+
+  release:create:
+    desc: Full release - build all, package, upload (set VERSION=v1.0.0)
+    cmds:
+      - task: release:build:all
+      - task: release:package
+      - task: release:upload
+        vars:
+          VERSION: '{{.VERSION | default "latest"}}'
+
+  release:status:
+    desc: Show current releases
+    cmds:
+      - gh release list --limit 10
