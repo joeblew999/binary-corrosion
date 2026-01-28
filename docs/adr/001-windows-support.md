@@ -2,7 +2,7 @@
 
 ## Status
 
-**Implemented** - Windows AMD64 supported, ARM64 blocked by dependency
+**Testing** - Windows AMD64 build enabled in CI (2026-01-28), ARM64 blocked by ring crate
 
 ## Context
 
@@ -31,7 +31,7 @@ The upstream project (superfly/corrosion) does not currently support Windows.
 | **ring 0.16.x** | C code doesn't compile for ARM64 | TLS/crypto | N/A | ❌ Blocks ARM64 |
 | **jemalloc** | Doesn't compile on Windows | corrosion | Low | ✅ Fixed (made Unix-only) |
 | **cr-sqlite** | No Windows DLL included | corro-types | Medium | ✅ Fixed (added DLL) |
-| **libgit2-sys** | Missing Windows library links (advapi32) | build-info | High | ❌ Blocks AMD64 |
+| **libgit2-sys** | Missing Windows library links | build-info | High | ✅ Fixed (added advapi32, crypt32, winhttp, rpcrt4, ole32, secur32) |
 
 ### Detailed Breakdown
 

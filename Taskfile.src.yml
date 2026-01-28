@@ -1,0 +1,226 @@
+# https://taskfile.dev
+# Source management for .src directory
+# Handles fork (joeblew999/corrosion) and upstream (superfly/corrosion)
+version: '3'
+
+vars:
+  SRC_DIR: .src
+  FORK_REPO: https://github.com/joeblew999/corrosion.git
+  FORK_REMOTE: origin
+  UPSTREAM_REPO: https://github.com/superfly/corrosion.git
+  UPSTREAM_REMOTE: upstream
+
+tasks:
+  # ===========================================================================
+  # Clone & Setup
+  # ===========================================================================
+
+  clone:
+    desc: Clone fork to .src directory
+    cmds:
+      - rm -rf {{.SRC_DIR}}
+      - git clone {{.FORK_REPO}} {{.SRC_DIR}}
+    status:
+      - test -d {{.SRC_DIR}}/.git
+
+  setup:
+    desc: Setup both remotes (fork + upstream)
+    dir: '{{.SRC_DIR}}'
+    deps: [clone]
+    cmds:
+      - git remote add {{.UPSTREAM_REMOTE}} {{.UPSTREAM_REPO}} 2>/dev/null || true
+      - git fetch --all
+      - git remote -v
+
+  clean:
+    desc: Remove .src directory entirely
+    cmds:
+      - rm -rf {{.SRC_DIR}}
+    status:
+      - '! test -d {{.SRC_DIR}}'
+
+  # ===========================================================================
+  # Fork Management (origin)
+  # ===========================================================================
+
+  fork:fetch:
+    desc: Fetch latest from fork
+    dir: '{{.SRC_DIR}}'
+    deps: [clone]
+    cmds:
+      - git fetch {{.FORK_REMOTE}}
+
+  fork:pull:
+    desc: Pull latest from fork main
+    dir: '{{.SRC_DIR}}'
+    deps: [clone]
+    cmds:
+      - git checkout main
+      - git pull {{.FORK_REMOTE}} main
+
+  fork:push:
+    desc: Push current branch to fork
+    dir: '{{.SRC_DIR}}'
+    deps: [clone]
+    cmds:
+      - git push {{.FORK_REMOTE}}
+
+  fork:status:
+    desc: Show status relative to fork
+    dir: '{{.SRC_DIR}}'
+    deps: [clone]
+    cmds:
+      - git fetch {{.FORK_REMOTE}}
+      - echo "=== Local vs Fork (origin/main) ==="
+      - git log --oneline HEAD...{{.FORK_REMOTE}}/main || true
+
+  # ===========================================================================
+  # Upstream Management (superfly/corrosion)
+  # ===========================================================================
+
+  upstream:fetch:
+    desc: Fetch latest from upstream
+    dir: '{{.SRC_DIR}}'
+    deps: [setup]
+    cmds:
+      - git fetch {{.UPSTREAM_REMOTE}}
+
+  upstream:diff:
+    desc: Show commits in upstream not in fork
+    dir: '{{.SRC_DIR}}'
+    deps: [setup]
+    cmds:
+      - git fetch {{.UPSTREAM_REMOTE}}
+      - echo "=== Commits in upstream not in fork ==="
+      - git log --oneline {{.FORK_REMOTE}}/main...{{.UPSTREAM_REMOTE}}/main
+
+  upstream:merge:
+    desc: Merge upstream main into current branch
+    dir: '{{.SRC_DIR}}'
+    deps: [setup]
+    cmds:
+      - git fetch {{.UPSTREAM_REMOTE}}
+      - git merge {{.UPSTREAM_REMOTE}}/main --no-edit
+      - echo ""
+      - echo "Merged upstream/main. Review changes, resolve conflicts if any."
+      - echo "Then: task src:fork:push"
+
+  upstream:rebase:
+    desc: Rebase current branch onto upstream main
+    dir: '{{.SRC_DIR}}'
+    deps: [setup]
+    cmds:
+      - git fetch {{.UPSTREAM_REMOTE}}
+      - git rebase {{.UPSTREAM_REMOTE}}/main
+      - echo ""
+      - echo "Rebased onto upstream/main. Review, then force push:"
+      - echo "  git push --force-with-lease {{.FORK_REMOTE}}"
+
+  # ===========================================================================
+  # Branch Management
+  # ===========================================================================
+
+  branch:list:
+    desc: List all branches (local and remote)
+    dir: '{{.SRC_DIR}}'
+    deps: [setup]
+    cmds:
+      - git fetch --all
+      - echo "=== Local branches ==="
+      - git branch
+      - echo ""
+      - echo "=== Remote branches ==="
+      - git branch -r
+
+  branch:create:
+    desc: Create a new feature branch (set NAME=branch-name)
+    dir: '{{.SRC_DIR}}'
+    deps: [clone]
+    requires:
+      vars: [NAME]
+    cmds:
+      - git checkout -b {{.NAME}}
+      - echo "Created branch: {{.NAME}}"
+
+  branch:checkout:
+    desc: Checkout a branch (set NAME=branch-name)
+    dir: '{{.SRC_DIR}}'
+    deps: [clone]
+    requires:
+      vars: [NAME]
+    cmds:
+      - git checkout {{.NAME}}
+
+  # ===========================================================================
+  # Patch Management
+  # ===========================================================================
+
+  patch:create:
+    desc: Create patch from fork changes vs upstream (saves to patches/)
+    dir: '{{.SRC_DIR}}'
+    deps: [setup]
+    cmds:
+      - mkdir -p ../patches
+      - git fetch {{.UPSTREAM_REMOTE}}
+      - git format-patch {{.UPSTREAM_REMOTE}}/main --output-directory ../patches
+      - echo "Patches saved to patches/"
+      - ls -la ../patches/
+
+  patch:apply:
+    desc: Apply patches from patches/ directory
+    dir: '{{.SRC_DIR}}'
+    deps: [clone]
+    cmds:
+      - git am ../patches/*.patch
+      - echo "Applied patches from patches/"
+
+  # ===========================================================================
+  # Status & Info
+  # ===========================================================================
+
+  status:
+    desc: Show comprehensive status
+    dir: '{{.SRC_DIR}}'
+    deps: [setup]
+    cmds:
+      - echo "=== Git Status ==="
+      - git status --short
+      - echo ""
+      - echo "=== Current Branch ==="
+      - git branch --show-current
+      - echo ""
+      - echo "=== Remotes ==="
+      - git remote -v
+      - echo ""
+      - echo "=== Recent Commits ==="
+      - git log --oneline -5
+
+  log:
+    desc: Show git log with graph
+    dir: '{{.SRC_DIR}}'
+    deps: [clone]
+    cmds:
+      - git log --oneline --graph --all -20
+
+  diff:fork-upstream:
+    desc: Show diff between fork and upstream
+    dir: '{{.SRC_DIR}}'
+    deps: [setup]
+    cmds:
+      - git fetch --all
+      - git diff {{.FORK_REMOTE}}/main...{{.UPSTREAM_REMOTE}}/main --stat
+
+  # ===========================================================================
+  # Sync Workflows
+  # ===========================================================================
+
+  sync:
+    desc: Full sync - fetch all, show status, show upstream diff
+    deps: [setup]
+    cmds:
+      - task: upstream:fetch
+      - task: fork:fetch
+      - task: status
+      - echo ""
+      - echo "=== Upstream Changes ==="
+      - task: upstream:diff
