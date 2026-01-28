@@ -322,10 +322,11 @@ tasks:
         platforms: [windows]
 
   rust:build:windows:all:
-    desc: Build for all Windows architectures
+    desc: Build for Windows (AMD64 only - ARM64 blocked by ring crate)
     cmds:
-      - task: rust:build:windows:native
-      - task: rust:build:windows:arm64
+      - task: rust:build:windows:cross
+      # ARM64 blocked by ring crate C code not compiling for aarch64-pc-windows-msvc
+      # - task: rust:build:windows:arm64
 
   rust:build:windows:cross:
     desc: Build for Windows AMD64 using cross
@@ -645,8 +646,8 @@ tasks:
       - task: rust:build:macos:amd64
       - task: rust:build:linux:cross:amd64
       - task: rust:build:linux:cross:arm64
-      # Windows disabled - blocked by Unix socket usage in corro-admin
-      # - task: rust:build:windows:cross
+      - task: rust:build:windows:cross
+      # Windows ARM64 blocked by ring crate - no cross-compilation support
 
   release:package:
     desc: Create release tarballs and checksums
@@ -654,7 +655,7 @@ tasks:
     cmds:
       - rm -f *.tar.gz checksums.txt
       - |
-        for dir in darwin-arm64 darwin-amd64 linux-amd64 linux-arm64; do
+        for dir in darwin-arm64 darwin-amd64 linux-amd64 linux-arm64 windows-amd64; do
           if [ -d "$dir" ]; then
             tar -czvf "corrosion-${dir}.tar.gz" -C "$dir" .
             shasum -a 256 "corrosion-${dir}.tar.gz" >> checksums.txt
