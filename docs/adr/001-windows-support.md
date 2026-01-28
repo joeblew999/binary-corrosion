@@ -2,7 +2,7 @@
 
 ## Status
 
-**Blocked** - Windows AMD64 blocked by Unix socket usage in corro-admin, ARM64 blocked by ring crate
+**Implemented** - Windows AMD64 working in fork (joeblew999/corrosion). ARM64 remains blocked by ring crate.
 
 ## Context
 
@@ -32,7 +32,8 @@ The upstream project (superfly/corrosion) does not currently support Windows.
 | **jemalloc** | Doesn't compile on Windows | corrosion | Low | ✅ Fixed (made Unix-only) |
 | **cr-sqlite** | No Windows DLL included | corro-types | Medium | ✅ Fixed (added DLL) |
 | **libgit2-sys** | Missing Windows library links | build-info | High | ✅ Fixed (added advapi32, crypt32, winhttp, rpcrt4, ole32, secur32) |
-| **Unix Sockets** | UnixListener/UnixStream not available | corro-admin | High | ❌ Blocks AMD64 - needs TCP or named pipes alternative |
+| **Unix Sockets** | UnixListener/UnixStream not available | corro-admin | High | ✅ Fixed (TCP on Windows, Unix sockets on Unix) |
+| **defmt** | Embedded logging doesn't work on Windows | uhlc | Low | ✅ Fixed (removed defmt feature) |
 
 ### Detailed Breakdown
 
